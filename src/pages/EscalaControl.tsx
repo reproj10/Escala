@@ -1510,7 +1510,7 @@ function EscalaControl() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={cn(
-              "fixed inset-0 z-[45] bg-black/60 backdrop-blur-sm flex items-center justify-center overflow-hidden transition-all duration-200",
+              "fixed inset-0 z-[45] bg-black/60 backdrop-blur-sm flex items-center justify-center overflow-hidden transition-all duration-200 print-modal-container",
               isGlobalScaleMaximized ? "p-0" : "p-4 md:p-6 lg:p-10"
             )}
           >
@@ -1526,6 +1526,149 @@ function EscalaControl() {
                   : "border border-border rounded-xl max-h-[85vh] md:max-h-[88vh]"
               )}
             >
+              <div className="flex flex-col h-full w-full">
+                {/* Print Orientation & Formatting Overrides */}
+                <style>{`
+                  @page {
+                    size: landscape;
+                    margin: 5mm 8mm;
+                  }
+                  @media print {
+                    @page {
+                      size: landscape;
+                      margin: 5mm 8mm;
+                    }
+                    
+                    /* Hide everything except the modal content */
+                    body * {
+                      visibility: hidden !important;
+                    }
+                    
+                    /* Make the modal print container and all its children visible */
+                    .print-modal-container,
+                    .print-modal-container * {
+                      visibility: visible !important;
+                    }
+                    
+                    /* Position the print-modal-container perfectly at the top-left */
+                    .print-modal-container {
+                      position: absolute !important;
+                      left: 0 !important;
+                      top: 0 !important;
+                      width: 100% !important;
+                      height: auto !important;
+                      background-color: #fff !important;
+                      padding: 0 !important;
+                      margin: 0 !important;
+                      box-shadow: none !important;
+                    }
+                    
+                    /* Hide all UI elements that have the no-print class */
+                    .no-print {
+                      display: none !important;
+                      height: 0 !important;
+                      width: 0 !important;
+                      overflow: hidden !important;
+                      padding: 0 !important;
+                      margin: 0 !important;
+                      border: none !important;
+                    }
+                    
+                    /* Layout container resets to avoid physical page cuts */
+                    .flex-1.overflow-y-auto,
+                    .overflow-x-auto,
+                    .overflow-y-auto {
+                      overflow: visible !important;
+                      max-height: none !important;
+                      height: auto !important;
+                      width: 100% !important;
+                    }
+                    
+                    /* Force modal card white/black background/text resets */
+                    .bg-background.shadow-2xl {
+                      background-color: #fff !important;
+                      color: #000 !important;
+                      border: none !important;
+                    }
+                    
+                    /* Fit table fully onto landscape width */
+                    table {
+                      width: 100% !important;
+                      min-width: 0 !important;
+                      table-layout: fixed !important;
+                      border-collapse: collapse !important;
+                    }
+                    
+                    /* Reset borders and pad slightly smaller */
+                    th, td {
+                      font-size: 7.5px !important;
+                      padding: 4px 2px !important;
+                      height: auto !important;
+                      border: 1.5px solid #94a3b8 !important;
+                      text-align: center !important;
+                      color: #000 !important;
+                    }
+                    
+                    /* Colaborador Name Column */
+                    th:first-child, td:first-child {
+                      width: 155px !important;
+                      min-width: 155px !important;
+                      position: static !important;
+                      box-shadow: none !important;
+                      background-color: #fff !important;
+                      font-size: 8px !important;
+                      font-weight: 900 !important;
+                      text-align: left !important;
+                      padding-left: 6px !important;
+                    }
+                    
+                    th {
+                      background-color: #f1f5f9 !important;
+                      font-weight: bold !important;
+                    }
+                    
+                    /* Ensure weekend columns have light gray backgrounds */
+                    .bg-red-50 {
+                      background-color: #f8fafc !important;
+                    }
+                    
+                    /* Dynamic print background colors for cells */
+                    .bg-green-100 { background-color: #dcfce7 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-teal-100 { background-color: #ccfbf1 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-sky-100 { background-color: #e0f2fe !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-violet-100 { background-color: #ede9fe !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-purple-100 { background-color: #f3e8ff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-yellow-100 { background-color: #fef9c3 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-orange-100 { background-color: #ffedd5 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-red-200 { background-color: #fee2e2 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .bg-sky-200 { background-color: #bae6fd !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+                    /* Avoid breaks inside rows */
+                    tr {
+                      page-break-inside: avoid !important;
+                    }
+                    
+                    /* Make sure the legend is completely visible */
+                    .print-legend {
+                      display: flex !important;
+                      flex-direction: column !important;
+                      border: 1.5px solid #cbd5e1 !important;
+                      background-color: #fff !important;
+                      page-break-inside: avoid !important;
+                      margin-top: 15px !important;
+                      padding: 10px !important;
+                      border-radius: 8px !important;
+                    }
+                    
+                    /* Signature Block display */
+                    .print-signature {
+                      display: block !important;
+                      page-break-inside: avoid !important;
+                      margin-top: 30px !important;
+                    }
+                  }
+                `}</style>
+
               <div className="flex flex-col h-full w-full">
                 {/* Top sticky bar */}
                 <div className="border-b bg-card px-4 py-2 flex items-center justify-between shadow-sm shrink-0 no-print flex-wrap gap-2">
@@ -1614,9 +1757,20 @@ function EscalaControl() {
 
                 {/* Scrollable contents */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                {/* LEGEND & DETAILED CODES */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-2 text-xs">
-                  <strong className="text-indigo-655 dark:text-indigo-400 text-[11px] uppercase font-black">
+                  {/* Print Only Header */}
+                  <div className="hidden print:block text-center border-b pb-4 mb-4">
+                    <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
+                    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
+                      Escala de Trabalho Mensal - Enfermagem
+                    </h2>
+                    <p className="text-[10px] font-mono text-slate-500 mt-1">
+                      Mês de Referência: {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} / {selectedYear}
+                    </p>
+                  </div>
+
+                  {/* LEGEND & DETAILED CODES */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-2 text-xs no-print">
+                    <strong className="text-indigo-655 dark:text-indigo-400 text-[11px] uppercase font-black">
                     Legenda e Código de Escala:
                   </strong>
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-3 items-center mt-1">
@@ -1672,7 +1826,7 @@ function EscalaControl() {
                 </div>
 
                 {/* TOTALS PANEL */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 no-print">
                   {/* Total Geral */}
                   <div 
                     className={cn(
@@ -1723,7 +1877,7 @@ function EscalaControl() {
                 </div>
 
                 {/* INTERACTIVE FILTERS ROW */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 no-print">
                   <div className="space-y-1">
                     <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por nome</Label>
                     <div className="relative">
@@ -1778,7 +1932,7 @@ function EscalaControl() {
 
                 {/* EXCEL FORMULA BAR */}
                 {isExcelMode && (
-                  <div className="flex items-center gap-2 bg-[#f3f4f6] dark:bg-slate-900 border border-[#c0c0c0] dark:border-slate-850 p-2 rounded-xl text-xs font-mono select-none shadow-sm">
+                  <div className="flex items-center gap-2 bg-[#f3f4f6] dark:bg-slate-900 border border-[#c0c0c0] dark:border-slate-850 p-2 rounded-xl text-xs font-mono select-none shadow-sm no-print">
                     {/* Name/Address Box */}
                     <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 px-3 py-1.5 text-center font-black text-emerald-600 min-w-[70px] rounded-lg shadow-inner">
                       {selectedExcelCell ? `${selectedExcelCell.colLetter}${selectedExcelCell.rowNum}` : "A1"}
@@ -1972,6 +2126,91 @@ function EscalaControl() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+
+                {/* Print Footer Area (Legend + Signature) */}
+                <div className="hidden print:block mt-6 space-y-6">
+                  {/* Legend Replica for Printing */}
+                  <div className="p-4 bg-white border border-slate-300 rounded-xl flex flex-col gap-2 text-xs print-legend">
+                    <strong className="text-slate-900 text-[11px] uppercase font-black">
+                      Legenda e Código de Escala:
+                    </strong>
+                    <div className="grid grid-cols-6 gap-3 items-center mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-amber-500 text-white">P</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Ímpar Diurno</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-purple-500 text-white">P</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Ímpar Noturno</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-blue-500 text-white">P</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Par Diurno</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-indigo-650 text-white">P</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Par Noturno</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-emerald-600 text-white">P</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Administrativo</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-emerald-500 text-white">F</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Folga Deferida</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-amber-500 text-white">?</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Folga Sob Análise</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-pink-600 text-white">FE</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Folga Eleitoral</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-cyan-550 text-white">FA</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Folga Abonada</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-violet-600 text-white">BH</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Banco de Horas</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-red-700 text-white">LM</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Licença Médica</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded bg-slate-100 text-slate-400 border font-extrabold">-</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Folga de Escala</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Print Signature Footer Block */}
+                  <div className="pt-6 border-t border-slate-350 print-signature">
+                    <div className="w-full flex items-center justify-between px-16">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Data de Emissão:</span>
+                        <span className="text-xs font-semibold text-slate-900 border-b border-dotted border-black w-32 h-5 text-center mt-1">
+                          ____ / ____ / ________
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-col items-center gap-1.5 min-w-[280px]">
+                        <div className="w-full border-b border-black h-5" />
+                        <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-wider text-center">
+                          Renata Ap. Bueno Pereira
+                        </span>
+                        <span className="text-[9.5px] font-bold text-slate-600 uppercase tracking-wide text-center">
+                          Enfermeira Responsável Técnica (RT)
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
+                          COREN-SP 484843
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
