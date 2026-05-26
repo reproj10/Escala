@@ -1,0 +1,51 @@
+{
+  "name": "MedicalCertificate",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string",
+      "description": "ID do colaborador"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Nome do colaborador"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "AT",
+        "LM",
+        "LTS",
+        "LS"
+      ],
+      "description": "Tipo: AT=Atestado, LM=Licen\u00e7a Maternidade, LTS=Licen\u00e7a Tratamento Sa\u00fade, LS=Licen\u00e7a Sa\u00fade"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de in\u00edcio"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de t\u00e9rmino"
+    },
+    "days_count": {
+      "type": "number",
+      "description": "Quantidade de dias"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL do arquivo digitalizado"
+    }
+  },
+  "required": [
+    "employee_name",
+    "type",
+    "start_date"
+  ]
+}

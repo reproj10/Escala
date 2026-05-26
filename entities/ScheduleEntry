@@ -1,0 +1,47 @@
+{
+  "name": "ScheduleEntry",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string",
+      "description": "ID do colaborador"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Nome do colaborador"
+    },
+    "month": {
+      "type": "number",
+      "description": "M\u00eas (1-12)"
+    },
+    "year": {
+      "type": "number",
+      "description": "Ano"
+    },
+    "shift_type": {
+      "type": "string",
+      "enum": [
+        "diurno_a",
+        "diurno_b",
+        "noturno_a",
+        "noturno_b"
+      ],
+      "description": "Tipo de turno"
+    },
+    "days": {
+      "type": "object",
+      "description": "Mapa dia->sigla (ex: {\"1\":\"P\",\"2\":\"F\",...})"
+    },
+    "locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o m\u00eas est\u00e1 travado para edi\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "employee_name",
+    "month",
+    "year",
+    "shift_type"
+  ]
+}
