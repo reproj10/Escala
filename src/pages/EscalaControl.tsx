@@ -67,6 +67,8 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { useScaleSettings } from "@/hooks/useScaleSettings";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 // Define TypeScript structures
 export interface StaffMember {
@@ -395,6 +397,65 @@ function EscalaControl() {
       setIsAuthModalOpen(false);
     } else {
       setAuthError('Usuário ou senha incorretos!');
+    }
+  };
+
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    const input = document.getElementById("print-area-container");
+    if (!input) {
+      toast.error("Erro ao localizar container de impressão.");
+      return;
+    }
+
+    try {
+      setIsGeneratingPDF(true);
+      toast.info("Iniciando geração do PDF de visualização...");
+
+      // Temporarily expand tables and clear scroll bounds to ensure high-fidelity screenshot capture
+      const originalStyle = input.style.cssText;
+      input.style.width = "1300px"; // locks high-width detail for full scale grid width
+      input.style.height = "auto";
+      input.style.overflow = "visible";
+
+      // Allow DOM repaint
+      await new Promise(r => setTimeout(r, 300));
+
+      const canvas = await html2canvas(input, {
+        scale: 2.2, // high quality
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: 1350
+      });
+
+      // Restore original styles
+      input.style.cssText = originalStyle;
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const imgWidth = 297; // A4 landscape width in mm
+      const pageHeight = 210; // A4 landscape height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+
+      // Open in new window/tab as a preview
+      const pdfBlob = pdf.output("bloburl");
+      window.open(pdfBlob, "_blank");
+
+      toast.success("PDF de visualização gerado com sucesso! Verifique a nova aba.");
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Ocorreu um erro ao gerar o PDF de visualização.");
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -1539,6 +1600,17 @@ function EscalaControl() {
                       margin: 5mm 8mm;
                     }
                     
+                    /* Reset HTML, body, root, main and panels to allow natural document flow */
+                    html, body, #root, #root > div, main, .h-screen, .h-full, .flex-1 {
+                      background-color: #fff !important;
+                      color: #000 !important;
+                      height: auto !important;
+                      max-height: none !important;
+                      overflow: visible !important;
+                      margin: 0 !important;
+                      padding: 0 !important;
+                    }
+                    
                     /* Hide everything except the modal content */
                     body * {
                       visibility: hidden !important;
@@ -1730,12 +1802,24 @@ function EscalaControl() {
                       <ShieldOff className="h-3 w-3" /> Destravar Escala
                     </Button>
                     
-                    <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-7 text-xs no-print border-destructive/20 hover:bg-destructive/5 text-destructive font-semibold hidden lg:flex">
-                      <Download className="h-3.5 w-3.5" /> Baixar PDF
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleGeneratePDF} 
+                      disabled={isGeneratingPDF}
+                      className="gap-1.5 h-7 text-xs no-print border-indigo-200 hover:bg-indigo-50/50 dark:border-indigo-900/50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 font-semibold hidden lg:flex"
+                    >
+                      <Download className="h-3.5 w-3.5" /> 
+                      {isGeneratingPDF ? "Gerando..." : "Visualizar PDF (Paisagem)"}
                     </Button>
                     
-                    <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-7 text-xs no-print hidden lg:flex">
-                      <Printer className="h-3.5 w-3.5" /> Imprimir
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => window.print()} 
+                      className="gap-1.5 h-7 text-xs no-print border-emerald-200 hover:bg-emerald-50/50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-semibold hidden lg:flex"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-emerald-500" /> Imprimir Escala
                     </Button>
                     
                     <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs no-print hidden xl:flex">
@@ -1756,16 +1840,6 @@ function EscalaControl() {
 
                 {/* Scrollable contents */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                  {/* Print Only Header */}
-                  <div className="hidden print:block text-center border-b pb-4 mb-4">
-                    <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
-                    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
-                      Escala de Trabalho Mensal - Enfermagem
-                    </h2>
-                    <p className="text-[10px] font-mono text-slate-500 mt-1">
-                      Mês de Referência: {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} / {selectedYear}
-                    </p>
-                  </div>
 
                   {/* LEGEND & DETAILED CODES */}
                   <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-2 text-xs no-print">
@@ -1956,8 +2030,21 @@ function EscalaControl() {
                   </div>
                 )}
 
-                {/* INTEGRATED SHEET TABLE */}
-                <div className="border rounded-xl overflow-hidden bg-card shadow-sm border-slate-200 dark:border-slate-800">
+                {/* PRINT AREA CONTAINER FOR PDF & PRINT */}
+                <div id="print-area-container" className="flex flex-col space-y-6 bg-background p-4 print:p-0">
+                  {/* Print Only Header */}
+                  <div className="hidden print:block text-center border-b pb-4 mb-4">
+                    <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
+                    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
+                      Escala de Trabalho Mensal - Enfermagem
+                    </h2>
+                    <p className="text-[10px] font-mono text-slate-500 mt-1">
+                      Mês de Referência: {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} / {selectedYear}
+                    </p>
+                  </div>
+
+                  {/* INTEGRATED SHEET TABLE */}
+                  <div className="border rounded-xl overflow-hidden bg-card shadow-sm border-slate-200 dark:border-slate-800">
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-left text-xs min-w-[1300px]">
                       <thead>
@@ -2213,6 +2300,7 @@ function EscalaControl() {
                   </div>
                 </div>
               </div>
+            </div>
 
               {/* Bottom bar */}
               <div className="border-t bg-card px-6 py-4 flex items-center justify-end shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.02)]">
