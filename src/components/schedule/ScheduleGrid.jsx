@@ -480,8 +480,8 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
         </table>
       </div>
 
-      {/* Campo de assinatura do RT exclusivo para impressão */}
-      <div className="hidden print:flex justify-end mt-3 mr-6">
+      {/* Campo de assinatura do RT exclusivo para impressão deativado em favor do rodapé unificado */}
+      <div className="hidden">
         <div className="text-center flex flex-col items-center">
           <div className="w-60 border-b border-black/80 mb-1" />
           <span className="text-[10px] font-bold text-black uppercase tracking-wide">Renata Ap. Bueno Pereira</span>

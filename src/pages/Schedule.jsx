@@ -14,6 +14,9 @@ import ScheduleGrid from '@/components/schedule/ScheduleGrid';
 import LegendBar from '@/components/schedule/LegendBar';
 import { useAuth } from '@/lib/AuthContext';
 import { useScheduleUnlock } from '@/hooks/useScheduleUnlock';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { toast } from 'sonner';
 
 const SHIFT_TABS = [
   { value: 'todos', label: 'Todos os Turnos' },
@@ -63,6 +66,98 @@ export default function Schedule() {
       setIsAuthModalOpen(false);
     } else {
       setAuthError('Usuário ou senha incorretos!');
+    }
+  };
+
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    const input = document.getElementById("print-area-container");
+    if (!input) {
+      toast.error("Erro ao localizar container de impressão.");
+      return;
+    }
+
+    try {
+      setIsGeneratingPDF(true);
+      toast.info("Preparando escala e gerando visualização em PDF...");
+
+      // Select inner wrappers to force horizontal expansion and bypass scroll bounds
+      const tableWrapper = input.querySelector(".overflow-x-auto");
+      const borderWrapper = input.querySelector(".border.rounded-xl");
+      
+      // Backup original styles
+      const originalInputStyle = input.style.cssText;
+      const originalTableWrapperStyle = tableWrapper ? tableWrapper.style.cssText : "";
+      const originalBorderWrapperStyle = borderWrapper ? borderWrapper.style.cssText : "";
+
+      // Apply robust inline overrides to force full landscape scaling
+      input.style.setProperty("width", "1450px", "important");
+      input.style.setProperty("min-width", "1450px", "important");
+      input.style.setProperty("max-width", "none", "important");
+      input.style.setProperty("height", "auto", "important");
+      input.style.setProperty("overflow", "visible", "important");
+
+      if (tableWrapper) {
+        tableWrapper.style.setProperty("overflow", "visible", "important");
+        tableWrapper.style.setProperty("width", "auto", "important");
+        tableWrapper.style.setProperty("max-width", "none", "important");
+      }
+
+      if (borderWrapper) {
+        borderWrapper.style.setProperty("overflow", "visible", "important");
+      }
+
+      // Allow DOM repaint
+      await new Promise(r => setTimeout(r, 400));
+
+      const canvas = await html2canvas(input, {
+        scale: 2.2, // high quality
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: 1450,
+        windowWidth: 1500
+      });
+
+      // Restore original styles
+      input.style.cssText = originalInputStyle;
+      if (tableWrapper) tableWrapper.style.cssText = originalTableWrapperStyle;
+      if (borderWrapper) borderWrapper.style.cssText = originalBorderWrapperStyle;
+
+      const imgData = canvas.toDataURL("image/png");
+      
+      // Standard landscape A4 PDF orientation
+      const pdf = new jsPDF('l', 'mm', 'a4');
+
+      const pageWidth = 297; // A4 landscape width in mm
+      const pageHeight = 210; // A4 landscape height in mm
+      
+      // Scale proportionally to fit within 297x210 mm bounds
+      let imgWidth = pageWidth - 10; // 5mm margin on left/right
+      let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight > (pageHeight - 10)) {
+        imgHeight = pageHeight - 10; // 5mm margin on top/bottom
+        imgWidth = (canvas.width * imgHeight) / canvas.height;
+      }
+
+      // Center the image perfectly on the landscape A4 page
+      const xOffset = (pageWidth - imgWidth) / 2;
+      const yOffset = (pageHeight - imgHeight) / 2;
+
+      pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
+
+      // Open in new tab
+      const pdfBlob = pdf.output("bloburl");
+      window.open(pdfBlob, "_blank");
+
+      toast.success("Visualização gerada com sucesso! Verifique a nova aba.");
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Ocorreu um erro ao processar o PDF de visualização.");
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -131,106 +226,140 @@ export default function Schedule() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-background flex flex-col"
+            className="fixed inset-0 z-[100] bg-background flex flex-col print-modal-container"
           >
             {/* Dynamic CSS Print Injections */}
             <style>{`
-              /* Set landscape at the top-level (forces and locks browser preview to landscape automatically!) */
               @page {
                 size: landscape;
-                margin: 4mm;
+                margin: 5mm 8mm;
               }
-
               @media print {
                 @page {
                   size: landscape;
-                  margin: 4mm;
+                  margin: 5mm 8mm;
                 }
                 
-                /* Hide sidebar and all other interactive page elements */
-                .no-print,
-                aside,
-                [role="tablist"],
-                header,
-                nav {
-                  display: none !important;
-                }
-                
-                /* Reset layout bounds and allow full size print expansion */
-                html, body, #root, .h-screen, main, .h-full, .flex-1 {
+                /* Reset HTML, body, root, main and panels to allow natural document flow */
+                html, body, #root, #root > div, main, .h-screen, .h-full, .flex-1 {
                   background-color: #fff !important;
                   color: #000 !important;
                   height: auto !important;
+                  max-height: none !important;
                   overflow: visible !important;
                   margin: 0 !important;
                   padding: 0 !important;
+                }
+                
+                /* Hide everything except the modal content */
+                body * {
+                  visibility: hidden !important;
+                }
+                
+                /* Make the modal print container and all its children visible */
+                .print-modal-container,
+                .print-modal-container * {
+                  visibility: visible !important;
+                }
+                
+                /* Position the print-modal-container perfectly at the top-left */
+                .print-modal-container {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  background-color: #fff !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
                   box-shadow: none !important;
                 }
                 
-                /* Reset sidebar margin on main wrapper */
-                main {
-                  margin-left: 0 !important;
+                /* Hide all UI elements that have the no-print class */
+                .no-print {
+                  display: none !important;
+                  height: 0 !important;
+                  width: 0 !important;
+                  overflow: hidden !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  border: none !important;
                 }
                 
-                /* Fullscreen modal reset for printing flow */
-                .fixed.inset-0 {
-                  position: static !important;
-                  display: block !important;
+                /* Layout container resets to avoid physical page cuts */
+                .flex-1.overflow-y-auto,
+                .overflow-x-auto,
+                .overflow-y-auto {
+                  overflow: visible !important;
+                  max-height: none !important;
+                  height: auto !important;
+                  width: 100% !important;
+                }
+                
+                /* Force modal card white/black background/text resets */
+                .bg-background.shadow-2xl {
                   background-color: #fff !important;
                   color: #000 !important;
-                  z-index: auto !important;
-                  width: 100% !important;
-                  height: auto !important;
-                  overflow: visible !important;
+                  border: none !important;
                 }
                 
-                .flex-1.overflow-auto {
-                  overflow: visible !important;
-                  height: auto !important;
-                  min-height: 0 !important;
-                }
-                
-                /* Table size adjustments for A4 landscape fitting */
+                /* Fit table fully onto landscape width */
                 table {
                   width: 100% !important;
-                  table-layout: auto !important;
+                  min-width: 0 !important;
+                  table-layout: fixed !important;
                   border-collapse: collapse !important;
-                  font-size: 6px !important;
                 }
                 
+                /* Reset borders and pad slightly smaller */
                 th, td {
-                  border: 1px solid #666 !important;
-                  padding: 0.5px 1px !important;
-                  font-size: 5.5px !important;
-                  line-height: 1.05 !important;
+                  font-size: 7px !important;
+                  padding: 3px 1.5px !important;
+                  height: auto !important;
+                  border: 1px solid #94a3b8 !important;
+                  text-align: center !important;
+                  color: #000 !important;
                 }
                 
-                /* Override sticky columns in print mode to align cleanly */
-                .sticky.left-0 {
+                /* Colaborador Name Column */
+                th:first-child, td:first-child {
+                  width: 155px !important;
+                  min-width: 155px !important;
                   position: static !important;
-                  background-color: transparent !important;
-                }
-
-                /* LegendBar print optimizations */
-                .bg-card.rounded-xl.border.border-border.p-4 {
-                  border: none !important;
-                  padding: 0 !important;
-                  background: transparent !important;
                   box-shadow: none !important;
+                  background-color: #fff !important;
+                  font-size: 7.5px !important;
+                  font-weight: 900 !important;
+                  text-align: left !important;
+                  padding-left: 6px !important;
                 }
                 
-                .bg-card.rounded-xl.border.border-border.p-4 h4 {
-                  display: none !important;
+                th {
+                  background-color: #f1f5f9 !important;
+                  font-weight: bold !important;
                 }
                 
-                .flex.flex-wrap.gap-2 {
-                  gap: 3px !important;
+                /* Ensure weekend columns have light backgrounds */
+                .bg-red-50 {
+                  background-color: #f8fafc !important;
                 }
                 
-                /* Retain badge colors */
+                /* Force colors to print */
                 * {
                   -webkit-print-color-adjust: exact !important;
                   print-color-adjust: exact !important;
+                }
+
+                /* Avoid breaks inside rows */
+                tr {
+                  page-break-inside: avoid !important;
+                }
+                
+                /* Signature Block display */
+                .print-signature {
+                  display: block !important;
+                  page-break-inside: avoid !important;
+                  margin-top: 30px !important;
                 }
               }
             `}</style>
@@ -284,13 +413,25 @@ export default function Schedule() {
                     {unlocked ? 'Escala Destravada' : 'Destravar Escala'}
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-7 text-xs no-print border-destructive/20 hover:bg-destructive/5 text-destructive font-semibold">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleGeneratePDF} 
+                  disabled={isGeneratingPDF}
+                  className="gap-1.5 h-7 text-xs no-print border-indigo-200 hover:bg-indigo-50/50 dark:border-indigo-900/50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 font-semibold"
+                >
                   <Download className="h-3.5 w-3.5" />
-                  Baixar PDF
+                  {isGeneratingPDF ? "Gerando..." : "Visualizar PDF (Paisagem)"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-7 text-xs no-print">
-                  <Printer className="h-3.5 w-3.5" />
-                  Imprimir
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => window.print()} 
+                  className="gap-1.5 h-7 text-xs no-print border-emerald-200 hover:bg-emerald-50/50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-semibold"
+                >
+                  <Printer className="h-3.5 w-3.5 text-emerald-500" />
+                  Imprimir Escala
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleLockToggle} className="gap-1.5 h-7 text-xs no-print">
                   {allLocked ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
@@ -303,13 +444,25 @@ export default function Schedule() {
             </div>
 
             {/* Tabela ocupa todo o espaço */}
-            <div className="flex-1 overflow-auto min-h-0 relative">
+            <div id="print-area-container" className="flex-1 overflow-auto min-h-0 relative bg-background p-4 print:p-0">
+              {/* Print Only Header */}
+              <div className="hidden print:block text-center border-b pb-4 mb-4">
+                <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
+                  Escala de Trabalho Mensal - Enfermagem
+                </h2>
+                <p className="text-[10px] font-mono text-slate-500 mt-1">
+                  Mês de Referência: {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} / {selectedYear}
+                </p>
+              </div>
+
               {isEntriesLoading && (
-                <div className="absolute inset-0 z-50 bg-background/50 flex flex-col items-center justify-center backdrop-blur-sm">
+                <div className="absolute inset-0 z-50 bg-background/50 flex flex-col items-center justify-center backdrop-blur-sm no-print">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
                   <p className="text-sm font-medium">Projetando escala...</p>
                 </div>
               )}
+              
               <ScheduleGrid
                 entries={entries}
                 employees={employees}
@@ -320,10 +473,43 @@ export default function Schedule() {
                 onUpdate={handleUpdate}
                 extraLeavesUnlocked={unlocked}
               />
+
+              {/* Print Footer Area (Legend + Signature) */}
+              <div className="hidden print:block mt-6 space-y-6">
+                {/* Legend Replica for Printing */}
+                <div className="p-4 bg-white border border-slate-300 rounded-xl">
+                  <LegendBar />
+                </div>
+
+                {/* Print Signature Footer Block */}
+                <div className="pt-6 border-t border-slate-350 print-signature">
+                  <div className="w-full flex items-center justify-between px-16">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Data de Emissão:</span>
+                      <span className="text-xs font-semibold text-slate-900 border-b border-dotted border-black w-32 h-5 text-center mt-1">
+                        ____ / ____ / ________
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-col items-center gap-1.5 min-w-[280px]">
+                      <div className="w-full border-b border-black h-5" />
+                      <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-wider text-center">
+                        Renata Ap. Bueno Pereira
+                      </span>
+                      <span className="text-[9.5px] font-bold text-slate-600 uppercase tracking-wide text-center">
+                        Enfermeira Responsável Técnica (RT)
+                      </span>
+                      <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
+                        COREN-SP 484843
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Legenda compacta */}
-            <div className="flex-shrink-0 border-t border-border">
+            <div className="flex-shrink-0 border-t border-border no-print">
               <LegendBar />
             </div>
           </motion.div>
