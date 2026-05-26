@@ -1669,7 +1669,6 @@ function EscalaControl() {
                   }
                 `}</style>
 
-              <div className="flex flex-col h-full w-full">
                 {/* Top sticky bar */}
                 <div className="border-b bg-card px-4 py-2 flex items-center justify-between shadow-sm shrink-0 no-print flex-wrap gap-2">
                   <div className="flex items-center gap-4">
