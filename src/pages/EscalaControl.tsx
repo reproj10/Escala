@@ -411,49 +411,82 @@ function EscalaControl() {
 
     try {
       setIsGeneratingPDF(true);
-      toast.info("Iniciando geração do PDF de visualização...");
+      toast.info("Preparando escala e gerando visualização em PDF...");
 
-      // Temporarily expand tables and clear scroll bounds to ensure high-fidelity screenshot capture
-      const originalStyle = input.style.cssText;
-      input.style.width = "1300px"; // locks high-width detail for full scale grid width
-      input.style.height = "auto";
-      input.style.overflow = "visible";
+      // Select inner wrappers to force horizontal expansion and bypass scroll bounds
+      const tableWrapper = input.querySelector(".overflow-x-auto");
+      const borderWrapper = input.querySelector(".border.rounded-xl");
+      
+      // Backup original styles
+      const originalInputStyle = input.style.cssText;
+      const originalTableWrapperStyle = tableWrapper ? tableWrapper.style.cssText : "";
+      const originalBorderWrapperStyle = borderWrapper ? borderWrapper.style.cssText : "";
+
+      // Apply robust inline overrides to force full landscape scaling
+      input.style.setProperty("width", "1450px", "important");
+      input.style.setProperty("min-width", "1450px", "important");
+      input.style.setProperty("max-width", "none", "important");
+      input.style.setProperty("height", "auto", "important");
+      input.style.setProperty("overflow", "visible", "important");
+
+      if (tableWrapper) {
+        tableWrapper.style.setProperty("overflow", "visible", "important");
+        tableWrapper.style.setProperty("width", "auto", "important");
+        tableWrapper.style.setProperty("max-width", "none", "important");
+      }
+
+      if (borderWrapper) {
+        borderWrapper.style.setProperty("overflow", "visible", "important");
+      }
 
       // Allow DOM repaint
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 400));
 
       const canvas = await html2canvas(input, {
         scale: 2.2, // high quality
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: 1350
+        width: 1450,
+        windowWidth: 1500
       });
 
       // Restore original styles
-      input.style.cssText = originalStyle;
+      input.style.cssText = originalInputStyle;
+      if (tableWrapper) tableWrapper.style.cssText = originalTableWrapperStyle;
+      if (borderWrapper) borderWrapper.style.cssText = originalBorderWrapperStyle;
 
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4"
-      });
+      
+      // Standard bulletproof positional arguments for landscape A4
+      const pdf = new jsPDF('l', 'mm', 'a4');
 
-      const imgWidth = 297; // A4 landscape width in mm
+      const pageWidth = 297; // A4 landscape width in mm
       const pageHeight = 210; // A4 landscape height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Scale proportionally to fit within 297x210 mm bounds
+      let imgWidth = pageWidth - 10; // 5mm margin on left/right
+      let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      if (imgHeight > (pageHeight - 10)) {
+        imgHeight = pageHeight - 10; // 5mm margin on top/bottom
+        imgWidth = (canvas.width * imgHeight) / canvas.height;
+      }
 
-      // Open in new window/tab as a preview
+      // Center the image perfectly on the landscape A4 page
+      const xOffset = (pageWidth - imgWidth) / 2;
+      const yOffset = (pageHeight - imgHeight) / 2;
+
+      pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
+
+      // Open in new tab
       const pdfBlob = pdf.output("bloburl");
       window.open(pdfBlob, "_blank");
 
-      toast.success("PDF de visualização gerado com sucesso! Verifique a nova aba.");
+      toast.success("Visualização gerada com sucesso! Verifique a nova aba.");
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
-      toast.error("Ocorreu um erro ao gerar o PDF de visualização.");
+      toast.error("Ocorreu um erro ao processar o PDF de visualização.");
     } finally {
       setIsGeneratingPDF(false);
     }
