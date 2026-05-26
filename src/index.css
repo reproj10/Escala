@@ -96,6 +96,26 @@
   }
 }
 
+/* Print styles */
+@media print {
+  /* Show the PDF footer (legend + signature) when printing natively */
+  .pdf-print-footer {
+    display: block !important;
+  }
+  /* Hide non-print UI elements */
+  .no-print {
+    display: none !important;
+  }
+  /* Ensure page is landscape A4 */
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  body {
+    background: white !important;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

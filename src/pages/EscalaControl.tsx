@@ -417,26 +417,43 @@ function EscalaControl() {
       // Select inner wrappers to force horizontal expansion and bypass scroll bounds
       const tableWrapper = input.querySelector(".overflow-x-auto");
       const borderWrapper = input.querySelector(".border.rounded-xl");
-      
+
+      // Select print-only elements (legend + signature) that are hidden by default
+      const printOnlyElements = input.querySelectorAll(".pdf-print-footer");
+      const hiddenOriginalDisplays: string[] = [];
+
       // Backup original styles
       const originalInputStyle = input.style.cssText;
       const originalTableWrapperStyle = tableWrapper ? tableWrapper.style.cssText : "";
       const originalBorderWrapperStyle = borderWrapper ? borderWrapper.style.cssText : "";
+      const originalScrollLeft = tableWrapper ? tableWrapper.scrollLeft : 0;
 
       // Add generating-pdf class to show print-only elements and borders during screenshot
       input.classList.add("generating-pdf");
 
+      // Force show the hidden print-only elements (legend + signature)
+      printOnlyElements.forEach((el: Element) => {
+        const htmlEl = el as HTMLElement;
+        hiddenOriginalDisplays.push(htmlEl.style.display);
+        htmlEl.style.setProperty("display", "block", "important");
+      });
+
+      // Rely on clean CSS-only overrides for position:static, left:auto, and transform:none.
+
       // Apply robust inline overrides to force full landscape scaling
-      input.style.setProperty("width", "1450px", "important");
-      input.style.setProperty("min-width", "1450px", "important");
+      // 2200px wide ensures width:height ratio > 1.41 (A4 landscape ratio)
+      // so the PDF image always fills full page WIDTH with no side margins
+      input.style.setProperty("width", "2200px", "important");
+      input.style.setProperty("min-width", "2200px", "important");
       input.style.setProperty("max-width", "none", "important");
       input.style.setProperty("height", "auto", "important");
       input.style.setProperty("overflow", "visible", "important");
 
       if (tableWrapper) {
         tableWrapper.style.setProperty("overflow", "visible", "important");
-        tableWrapper.style.setProperty("width", "auto", "important");
+        tableWrapper.style.setProperty("width", "100%", "important");
         tableWrapper.style.setProperty("max-width", "none", "important");
+        tableWrapper.scrollLeft = 0;
       }
 
       if (borderWrapper) {
@@ -444,43 +461,59 @@ function EscalaControl() {
       }
 
       // Allow DOM repaint
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 500));
 
       const canvas = await html2canvas(input, {
-        scale: 2.2, // high quality
+        scale: 2,       // good quality, lower scale at 2200px base = ~4400px final
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        width: 1450,
-        windowWidth: 1500
+        width: 2200,
+        windowWidth: 2250
       });
 
-      // Restore original styles and class immediately
+      // Restore original styles, scroll position, and class immediately
       input.classList.remove("generating-pdf");
       input.style.cssText = originalInputStyle;
-      if (tableWrapper) tableWrapper.style.cssText = originalTableWrapperStyle;
+      if (tableWrapper) {
+        tableWrapper.style.cssText = originalTableWrapperStyle;
+        tableWrapper.scrollLeft = originalScrollLeft;
+      }
       if (borderWrapper) borderWrapper.style.cssText = originalBorderWrapperStyle;
 
-      const imgData = canvas.toDataURL("image/png");
-      
-      // Standard bulletproof positional arguments for landscape A4
-      const pdf = new jsPDF('l', 'mm', 'a4');
+      // Sticky elements are perfectly managed via CSS overrides.
 
-      const pageWidth = 297; // A4 landscape width in mm
-      const pageHeight = 210; // A4 landscape height in mm
-      
-      // Scale proportionally to fit within 297x210 mm bounds
-      let imgWidth = pageWidth - 10; // 5mm margin on left/right
+      // Restore hidden print-only elements
+      printOnlyElements.forEach((el: Element, i: number) => {
+        const htmlEl = el as HTMLElement;
+        htmlEl.style.display = hiddenOriginalDisplays[i] || "";
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+
+      // A4 landscape: 297 x 210 mm
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pageWidth = 297;
+      const pageHeight = 210;
+      const margin = 5; // 5mm margin all sides
+
+      const maxImgWidth  = pageWidth  - margin * 2; // 287mm
+      const maxImgHeight = pageHeight - margin * 2; // 200mm
+
+      // ALWAYS fill full width — the wide canvas ensures height fits within page
+      let imgWidth  = maxImgWidth;
       let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      if (imgHeight > (pageHeight - 10)) {
-        imgHeight = pageHeight - 10; // 5mm margin on top/bottom
-        imgWidth = (canvas.width * imgHeight) / canvas.height;
+      // Safety: if height still overflows, scale down proportionally
+      if (imgHeight > maxImgHeight) {
+        const scale = maxImgHeight / imgHeight;
+        imgWidth  = imgWidth  * scale;
+        imgHeight = maxImgHeight;
       }
 
-      // Center the image perfectly on the landscape A4 page
+      // Center horizontally, align to top with margin
       const xOffset = (pageWidth - imgWidth) / 2;
-      const yOffset = (pageHeight - imgHeight) / 2;
+      const yOffset = margin;
 
       pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
 
@@ -1636,6 +1669,24 @@ function EscalaControl() {
                     size: landscape;
                     margin: 5mm 8mm;
                   }
+                  
+                  /* Sticky Name Column on Screen */
+                  .colaborador-header {
+                    position: sticky !important;
+                    left: 0 !important;
+                    z-index: 20 !important;
+                  }
+                  .colaborador-cell {
+                    position: sticky !important;
+                    left: 0 !important;
+                    z-index: 10 !important;
+                  }
+                  .group-header-cell {
+                    position: sticky !important;
+                    left: 0 !important;
+                    z-index: 10 !important;
+                  }
+                  
                   @media print {
                     @page {
                       size: landscape;
@@ -1697,6 +1748,14 @@ function EscalaControl() {
                       height: auto !important;
                       width: 100% !important;
                     }
+
+                    #print-area-container {
+                      width: 1640px !important;
+                      min-width: 1640px !important;
+                      max-width: 1640px !important;
+                      zoom: 0.66 !important;
+                      overflow: visible !important;
+                    }
                     
                     /* Force modal card white/black background/text resets */
                     .bg-background.shadow-2xl {
@@ -1716,24 +1775,65 @@ function EscalaControl() {
                     /* Reset borders and pad slightly smaller */
                     th, td {
                       font-size: 7.5px !important;
-                      padding: 4px 2px !important;
-                      height: auto !important;
+                      padding: 0 !important;
                       border: 1.5px solid #94a3b8 !important;
                       text-align: center !important;
                       color: #000 !important;
                     }
+                    th {
+                      height: 45px !important;
+                    }
+                    td {
+                      height: 40px !important;
+                    }
+                    td > div {
+                      display: flex !important;
+                      align-items: center !important;
+                      height: 100% !important;
+                      width: 100% !important;
+                    }
                     
                     /* Colaborador Name Column */
-                    th:first-child, td:first-child {
-                      width: 155px !important;
-                      min-width: 155px !important;
+                    .colaborador-header,
+                    .colaborador-cell {
+                      width: 220px !important;
+                      min-width: 220px !important;
                       position: static !important;
+                      left: auto !important;
+                      transform: none !important;
                       box-shadow: none !important;
                       background-color: #fff !important;
                       font-size: 8px !important;
                       font-weight: 900 !important;
                       text-align: left !important;
                       padding-left: 6px !important;
+                    }
+                    
+                    td:first-child {
+                      position: static !important;
+                      left: auto !important;
+                      transform: none !important;
+                      box-shadow: none !important;
+                    }
+
+                    .categoria-header,
+                    .categoria-cell {
+                      width: 120px !important;
+                      min-width: 120px !important;
+                      position: static !important;
+                      left: auto !important;
+                      transform: none !important;
+                      text-align: center !important;
+                    }
+
+                    .coren-header,
+                    .coren-cell {
+                      width: 100px !important;
+                      min-width: 100px !important;
+                      position: static !important;
+                      left: auto !important;
+                      transform: none !important;
+                      text-align: center !important;
                     }
                     
                     th {
@@ -1744,6 +1844,40 @@ function EscalaControl() {
                     /* Ensure weekend columns have light gray backgrounds */
                     .bg-red-50 {
                       background-color: #f8fafc !important;
+                    }
+                    
+                    /* Group Header overrides in print */
+                    .bg-purple-50, .bg-purple-50 td, .bg-purple-50 th {
+                      background-color: #faf5ff !important;
+                      color: #7e22ce !important;
+                      border: none !important;
+                      height: 32px !important;
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                    }
+                    .bg-teal-50, .bg-teal-50 td, .bg-teal-50 th {
+                      background-color: #f0fdfa !important;
+                      color: #0f766e !important;
+                      border: none !important;
+                      height: 32px !important;
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                    }
+                    .bg-blue-50, .bg-blue-50 td, .bg-blue-50 th {
+                      background-color: #eff6ff !important;
+                      color: #1d4ed8 !important;
+                      border: none !important;
+                      height: 32px !important;
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                    }
+                    .group-header-cell {
+                      position: static !important;
+                      left: auto !important;
+                      transform: none !important;
+                      box-shadow: none !important;
+                      width: auto !important;
+                      min-width: 0 !important;
                     }
                     
                     /* Dynamic print background colors for cells */
@@ -1788,7 +1922,7 @@ function EscalaControl() {
                     color: #000000 !important;
                     padding: 20px !important;
                   }
-                  .generating-pdf .hidden.print\:block {
+                  .generating-pdf .print-only-block {
                     display: block !important;
                   }
                   .generating-pdf .no-print {
@@ -1801,25 +1935,105 @@ function EscalaControl() {
                   }
                   .generating-pdf th, .generating-pdf td {
                     font-size: 7.5px !important;
-                    padding: 4px 2px !important;
+                    padding: 0 !important;
                     border: 1.5px solid #94a3b8 !important;
                     color: #000000 !important;
                     background-color: #ffffff !important;
                     text-align: center !important;
                   }
-                  .generating-pdf th:first-child, .generating-pdf td:first-child {
-                    width: 155px !important;
-                    min-width: 155px !important;
+                  .generating-pdf th {
+                    height: 45px !important;
+                  }
+                  .generating-pdf td {
+                    height: 40px !important;
+                  }
+                  .generating-pdf td > div {
+                    display: flex !important;
+                    align-items: center !important;
+                    height: 100% !important;
+                    width: 100% !important;
+                  }
+                  .generating-pdf .colaborador-header,
+                  .generating-pdf .colaborador-cell {
+                    width: 220px !important;
+                    min-width: 220px !important;
                     position: static !important;
+                    left: auto !important;
+                    transform: none !important;
                     font-size: 8px !important;
                     font-weight: 900 !important;
                     text-align: left !important;
                     padding-left: 6px !important;
                     box-shadow: none !important;
+                    background-color: #ffffff !important;
+                  }
+                  
+                  .generating-pdf td:first-child {
+                    position: static !important;
+                    left: auto !important;
+                    transform: none !important;
+                    box-shadow: none !important;
+                  }
+                  
+                  .generating-pdf .categoria-header,
+                  .generating-pdf .categoria-cell {
+                    width: 120px !important;
+                    min-width: 120px !important;
+                    position: static !important;
+                    left: auto !important;
+                    transform: none !important;
+                    text-align: center !important;
+                  }
+                  
+                  .generating-pdf .coren-header,
+                  .generating-pdf .coren-cell {
+                    width: 100px !important;
+                    min-width: 100px !important;
+                    position: static !important;
+                    left: auto !important;
+                    transform: none !important;
+                    text-align: center !important;
                   }
                   .generating-pdf th {
                     background-color: #f1f5f9 !important;
                   }
+                  /* Group Header overrides in generating-pdf */
+                  .generating-pdf .bg-purple-50,
+                  .generating-pdf .bg-purple-50 td {
+                    background-color: #faf5ff !important;
+                    color: #7e22ce !important;
+                    border: none !important;
+                    height: 32px !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                  }
+                  .generating-pdf .bg-teal-50,
+                  .generating-pdf .bg-teal-50 td {
+                    background-color: #f0fdfa !important;
+                    color: #0f766e !important;
+                    border: none !important;
+                    height: 32px !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                  }
+                  .generating-pdf .bg-blue-50,
+                  .generating-pdf .bg-blue-50 td {
+                    background-color: #eff6ff !important;
+                    color: #1d4ed8 !important;
+                    border: none !important;
+                    height: 32px !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                  }
+                  .generating-pdf .group-header-cell {
+                    position: static !important;
+                    left: auto !important;
+                    transform: none !important;
+                    box-shadow: none !important;
+                    width: auto !important;
+                    min-width: 0 !important;
+                  }
+                  
                   .generating-pdf .bg-green-100 { background-color: #dcfce7 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                   .generating-pdf .bg-teal-100 { background-color: #ccfbf1 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                   .generating-pdf .bg-sky-100 { background-color: #e0f2fe !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -1920,6 +2134,17 @@ function EscalaControl() {
                     <Button 
                       variant="outline" 
                       size="sm" 
+                      onClick={handleGeneratePDF} 
+                      disabled={isGeneratingPDF}
+                      className="gap-1.5 h-7 text-xs no-print border-purple-200 hover:bg-purple-50/50 dark:border-purple-900/50 dark:hover:bg-purple-950/20 text-purple-600 dark:text-purple-400 font-semibold hidden lg:flex ml-1"
+                    >
+                      <Download className="h-3.5 w-3.5 text-purple-500" /> 
+                      {isGeneratingPDF ? "Gerando..." : "Visualizar PDF (Paisagem 2)"}
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
                       onClick={() => window.print()} 
                       className="gap-1.5 h-7 text-xs no-print border-emerald-200 hover:bg-emerald-50/50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-semibold hidden lg:flex"
                     >
@@ -1950,7 +2175,7 @@ function EscalaControl() {
                     <strong className="text-indigo-655 dark:text-indigo-400 text-[11px] uppercase font-black">
                     Legenda e Código de Escala:
                   </strong>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-3 items-center mt-1">
+                  <div className="flex flex-wrap gap-x-5 gap-y-3.5 items-center mt-1">
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-amber-500 text-white shadow-sm">P</span>
                       <span className="text-muted-foreground text-[11px] font-semibold">Ímpar Diurno</span>
@@ -2135,9 +2360,9 @@ function EscalaControl() {
                 )}
 
                 {/* PRINT AREA CONTAINER FOR PDF & PRINT */}
-                <div ref={printAreaRef} id="print-area-container" className="flex flex-col space-y-6 bg-background p-4 print:p-0">
+                <div ref={printAreaRef} id="print-area-container" className="flex flex-col space-y-6 bg-background p-4 print:p-0 w-full max-w-full overflow-hidden">
                   {/* Print Only Header */}
-                  <div className="hidden print:block text-center border-b pb-4 mb-4">
+                  <div className="print-only-block hidden print:block text-center border-b pb-4 mb-4">
                     <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
                     <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
                       Escala de Trabalho Mensal - Enfermagem
@@ -2148,42 +2373,76 @@ function EscalaControl() {
                   </div>
 
                   {/* INTEGRATED SHEET TABLE */}
-                  <div className="border rounded-xl overflow-hidden bg-card shadow-sm border-slate-200 dark:border-slate-800">
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-xs min-w-[1300px]">
+                  <div className="border rounded-xl overflow-hidden bg-card shadow-sm border-slate-200 dark:border-slate-800 w-full max-w-full">
+                  <div className="overflow-x-auto w-full max-w-full">
+                    <table className="w-full border-collapse text-left text-xs">
+                      <colgroup>
+                        <col style={{ width: '220px' }} />
+                        <col style={{ width: '120px' }} />
+                        <col style={{ width: '100px' }} />
+                        {daysArray.map((d) => (
+                          <col key={`col-${d}`} style={{ width: '38px' }} />
+                        ))}
+                        <col style={{ width: '60px' }} />
+                      </colgroup>
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-900 border-b">
-                          <th className="p-3 font-bold text-slate-500 uppercase sticky left-0 bg-slate-100 dark:bg-slate-900 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r min-w-[200px] z-10 text-left">
-                            Colaborador
+                        <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                          <th
+                            className="bg-muted colaborador-header"
+                            style={{
+                              padding: 0,
+                              fontWeight: 700,
+                              color: '#64748b',
+                              textTransform: 'uppercase',
+                              borderRight: '1px solid #e2e8f0',
+                              width: '220px',
+                              minWidth: '220px',
+                              height: '45px'
+                            }}
+                          >
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '12px' }}>
+                              Colaborador
+                            </div>
                           </th>
-                          <th className="p-3 font-bold text-slate-500 uppercase border-r text-center min-w-[120px]">
-                            Categoria
+                          <th className="categoria-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '120px', minWidth: '120px', height: '45px' }}>
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              Categoria
+                            </div>
                           </th>
-                          <th className="p-3 font-bold text-slate-500 uppercase border-r text-center min-w-[90px]">
-                            COREN
+                          <th className="coren-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '100px', minWidth: '100px', height: '45px' }}>
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              COREN
+                            </div>
                           </th>
                           {daysArray.map((d) => {
                             const wDay = getWeekday(d);
                             const dow = new Date(selectedYear, selectedMonth - 1, d).getDay();
                             const isWeekend = dow === 0 || dow === 6;
-                            
                             return (
                               <th
                                 key={d}
-                                className={cn(
-                                  "p-2 text-center font-extrabold border-r min-w-[34px]",
-                                  isWeekend
-                                    ? "bg-red-500/[0.04] text-red-600 dark:text-red-400"
-                                    : "text-slate-600 dark:text-slate-400"
-                                )}
+                                style={{
+                                  padding: 0,
+                                  fontWeight: 800,
+                                  borderRight: '1px solid #e2e8f0',
+                                  width: '38px',
+                                  minWidth: '36px',
+                                  height: '45px',
+                                  backgroundColor: isWeekend ? 'rgba(239,68,68,0.04)' : '#f1f5f9',
+                                  color: isWeekend ? '#dc2626' : '#475569',
+                                }}
                               >
-                                <span className="block text-xs font-black">{d}</span>
-                                <span className="text-[8.5px] opacity-80 uppercase font-bold">{wDay}</span>
+                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                  <span style={{ display: 'block', fontSize: '11px', fontWeight: 900 }}>{d}</span>
+                                  <span style={{ fontSize: '8px', opacity: 0.8, textTransform: 'uppercase', fontWeight: 700 }}>{wDay}</span>
+                                </div>
                               </th>
                             );
                           })}
-                          <th className="p-3 font-bold text-slate-500 uppercase text-center min-w-[50px]">
-                            Ass.
+                          <th style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', width: '60px', minWidth: '60px', height: '45px' }}>
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              Ass.
+                            </div>
                           </th>
                         </tr>
                       </thead>
@@ -2248,25 +2507,48 @@ function EscalaControl() {
                               return (
                                 <React.Fragment key={p.id}>
                                   {showGroupHeader && (
-                                    <tr className={`${groupColor}`}>
-                                      <td colSpan={4 + daysArray.length} className={`sticky left-0 ${groupColor} z-10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider`}>
-                                        {groupLabel}
+                                    <tr className={`${groupColor}`} style={{ border: 'none' }}>
+                                      <td 
+                                        colSpan={4 + daysArray.length}
+                                        className={`sticky left-0 ${groupColor} z-10 text-[10px] font-bold uppercase tracking-wider group-header-cell`}
+                                        style={{ border: 'none', padding: 0, height: '32px', verticalAlign: 'middle', textAlign: 'left' }}
+                                      >
+                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '12px' }}>
+                                          {groupLabel}
+                                        </div>
                                       </td>
                                     </tr>
                                   )}
-                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition-all">
-                                    <td className="p-3 font-extrabold sticky left-0 bg-card shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r z-10 text-xs text-left">
-                                      <span className="block text-[12px] truncate max-w-[170px] text-foreground font-black">
-                                        {p.name}
-                                      </span>
+                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition-all" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                    {/* Name cell */}
+                                    <td
+                                      className="bg-card colaborador-cell"
+                                      style={{
+                                        padding: 0,
+                                        borderRight: '1px solid #e2e8f0',
+                                        width: '220px',
+                                        height: '40px'
+                                      }}
+                                    >
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '12px', paddingRight: '12px' }}>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#0f172a', lineHeight: 1.3 }} title={p.name}>
+                                          {p.name}
+                                        </span>
+                                      </div>
                                     </td>
-                                    <td className="p-2 border-r text-center whitespace-nowrap">
-                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold border ${roleBadgeColor(p.roleCategory || p.role)}`}>
-                                        {p.roleCategory || p.role}
-                                      </span>
+                                    {/* Category badge cell */}
+                                    <td className="categoria-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '120px', height: '40px' }}>
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px' }}>
+                                        <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[9px] font-semibold border ${roleBadgeColor(p.roleCategory || p.role)}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                          {p.roleCategory || p.role}
+                                        </span>
+                                      </div>
                                     </td>
-                                    <td className="p-2 border-r text-center font-mono text-[10px] text-muted-foreground">
-                                      {p.coren || '—'}
+                                    {/* COREN cell */}
+                                    <td className="coren-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '100px', height: '40px' }}>
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                        {p.coren || '—'}
+                                      </div>
                                     </td>
                                     {daysArray.map((d) => {
                                       const dayStatus = getDayStatus(p, d);
@@ -2274,7 +2556,6 @@ function EscalaControl() {
                                       const isWeekend = dow === 0 || dow === 6;
                                       
                                       const style = STATUS_STYLES[dayStatus] || STATUS_STYLES['off-duty'];
-                                      const cellBg = isWeekend ? 'bg-red-50 dark:bg-red-950/20' : '';
                                       
                                       const displayVal = dayStatus === 'duty' ? 'P' :
                                                         dayStatus === 'off-duty' ? '·' :
@@ -2295,18 +2576,29 @@ function EscalaControl() {
                                             });
                                             handleCellClick(p, d, dayStatus);
                                           }}
-                                          className={`p-0 text-center border-r select-none h-10 w-10 min-w-[34px] cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-800/85 transition-all ${cellBg}`}
+                                          style={{
+                                            padding: 0,
+                                            textAlign: 'center',
+                                            verticalAlign: 'middle',
+                                            borderRight: '1px solid #e2e8f0',
+                                            width: '38px',
+                                            height: '40px',
+                                            cursor: 'pointer',
+                                            backgroundColor: isWeekend ? 'rgba(254,242,242,1)' : 'transparent',
+                                          }}
                                         >
-                                          <div className={`w-full h-full flex items-center justify-center transition-all hover:scale-105`}>
-                                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded text-[9px] font-semibold border ${style.bg} ${style.text} ${style.border}`}>
+                                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded text-[9px] font-semibold border ${style.bg} ${style.text} ${style.border}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
                                               {displayVal}
                                             </span>
                                           </div>
                                         </td>
                                       );
                                     })}
-                                    <td className="p-2 text-center text-muted-foreground/30 font-mono text-[10px] select-none whitespace-nowrap">
-                                      ____
+                                    <td style={{ padding: 0, width: '60px', height: '40px' }}>
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(100,116,139,0.3)', fontFamily: 'monospace', fontSize: '10px', whiteSpace: 'nowrap' }}>
+                                        ____
+                                      </div>
                                     </td>
                                   </tr>
                                 </React.Fragment>
@@ -2319,60 +2611,60 @@ function EscalaControl() {
                   </div>
                 </div>
 
-                {/* Print Footer Area (Legend + Signature) */}
-                <div className="hidden print:block mt-6 space-y-6">
+                {/* Print Footer Area (Legend + Signature) - shown during PDF gen via JS */}
+                <div className="pdf-print-footer mt-6 space-y-6" style={{ display: 'none' }}>
                   {/* Legend Replica for Printing */}
                   <div className="p-4 bg-white border border-slate-300 rounded-xl flex flex-col gap-2 text-xs print-legend">
                     <strong className="text-slate-900 text-[11px] uppercase font-black">
                       Legenda e Código de Escala:
                     </strong>
-                    <div className="grid grid-cols-6 gap-3 items-center mt-1">
+                    <div className="flex flex-wrap gap-x-6 gap-y-3 items-center mt-1">
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-amber-500 text-white">P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Ímpar Diurno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-purple-500 text-white">P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#a855f7', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Ímpar Noturno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-blue-500 text-white">P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#3b82f6', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Par Diurno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-indigo-650 text-white">P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#4f46e5', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Par Noturno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-emerald-600 text-white">P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#059669', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Administrativo</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-emerald-500 text-white">F</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#10b981', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>F</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Deferida</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black bg-amber-500 text-white">?</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>?</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Sob Análise</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-pink-600 text-white">FE</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#db2777', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>FE</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Eleitoral</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-cyan-550 text-white">FA</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#06b6d4', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>FA</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Abonada</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-violet-600 text-white">BH</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#7c3aed', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>BH</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Banco de Horas</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black bg-red-700 text-white">LM</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#b91c1c', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>LM</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Licença Médica</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded bg-slate-100 text-slate-400 border font-extrabold">-</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded border font-extrabold" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#64748b', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>-</span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga de Escala</span>
                       </div>
                     </div>

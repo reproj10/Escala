@@ -353,6 +353,20 @@ export default function Schedule() {
                 .bg-red-50 {
                   background-color: #f8fafc !important;
                 }
+
+                /* Duty cells background color overrides for physical landscape printing */
+                .bg-green-100 { background-color: #dcfce7 !important; }
+                .bg-teal-100 { background-color: #ccfbf1 !important; }
+                .bg-sky-100 { background-color: #e0f2fe !important; }
+                .bg-violet-100 { background-color: #ede9fe !important; }
+                .bg-purple-100 { background-color: #f3e8ff !important; }
+                .bg-yellow-100 { background-color: #fef9c3 !important; }
+                .bg-orange-100 { background-color: #ffedd5 !important; }
+                .bg-red-200 { background-color: #fee2e2 !important; }
+                .bg-sky-200 { background-color: #bae6fd !important; }
+                .bg-red-100 { background-color: #fee2e2 !important; }
+                .bg-amber-100 { background-color: #fef3c7 !important; }
+                .bg-gray-100 { background-color: #f3f4f6 !important; }
                 
                 /* Force colors to print */
                 * {
@@ -381,6 +395,9 @@ export default function Schedule() {
               }
               .generating-pdf .hidden.print\:block {
                 display: block !important;
+              }
+              .generating-pdf .hidden.print\:flex {
+                display: flex !important;
               }
               .generating-pdf .no-print {
                 display: none !important;
@@ -518,14 +535,59 @@ export default function Schedule() {
             {/* Tabela ocupa todo o espaço */}
             <div ref={printAreaRef} id="print-area-container" className="flex-1 overflow-auto min-h-0 relative bg-background p-4 print:p-0">
               {/* Print Only Header */}
-              <div className="hidden print:block text-center border-b pb-4 mb-4">
-                <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
-                  Escala de Trabalho Mensal - Enfermagem
-                </h2>
-                <p className="text-[10px] font-mono text-slate-500 mt-1">
-                  Mês de Referência: {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} / {selectedYear}
-                </p>
+              <div className="hidden print:flex items-center justify-between border border-slate-350 p-4 mb-5 rounded-xl bg-white select-none text-slate-950 font-sans shadow-sm w-full">
+                {/* Left Section: IRDESI Logo & Blue Ribbon */}
+                <div className="flex items-center gap-3 flex-1 min-w-[240px]">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-[#1b365d] font-black text-2xl tracking-tighter">IRDESI</span>
+                    <svg className="w-6 h-6 flex-shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="100" height="100" rx="20" fill="#1b365d" />
+                      <rect x="22" y="22" width="24" height="24" rx="5" fill="white" />
+                      <rect x="54" y="22" width="24" height="24" rx="5" fill="white" opacity="0.85" />
+                      <rect x="22" y="54" width="24" height="24" rx="5" fill="white" opacity="0.85" />
+                      <rect x="54" y="54" width="24" height="24" rx="5" fill="white" opacity="0.6" />
+                    </svg>
+                  </div>
+                  {/* Blue Ribbon (slanted parallelogram) */}
+                  <div 
+                    className="h-10 w-28 bg-[#1b365d] flex-shrink-0"
+                    style={{
+                      clipPath: 'polygon(25% 0, 100% 0, 75% 100%, 0 100%)'
+                    }}
+                  />
+                </div>
+
+                {/* Center Section: Info Panel */}
+                <div className="flex flex-col items-center text-center px-4 flex-1">
+                  <h1 className="text-sm font-black uppercase text-slate-900 tracking-wide flex items-center gap-1.5 whitespace-nowrap">
+                    ESCALA DE ENFERMAGEM - <span className="font-extrabold text-[#1b365d]">{SHIFT_TABS.find(tab => tab.value === shiftType)?.label?.toUpperCase() || ''}</span>
+                  </h1>
+                  <p className="text-[8.5px] font-semibold text-slate-500 uppercase tracking-wide mt-1 whitespace-nowrap">
+                    Rua: Poços de Calda nº 66 - Jardim Santo Eduardo - CEP 06823 310
+                  </p>
+                  <div className="flex items-center gap-6 text-[9.5px] font-bold text-slate-700 uppercase tracking-wider mt-1.5 whitespace-nowrap">
+                    <span>EMBU DAS ARTES</span>
+                    <span className="text-[#b91c1c] font-black px-2 py-0.5 bg-red-50 border border-red-100 rounded">
+                      {['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'][selectedMonth - 1]} {selectedYear}
+                    </span>
+                    <span>CNES: 7868499</span>
+                  </div>
+                </div>
+
+                {/* Right Section: Cidade de Embu das Artes Logo */}
+                <div className="flex items-center justify-end gap-2 flex-1 min-w-[240px]">
+                  <div className="flex flex-col items-end text-[#b91c1c] font-sans">
+                    <span className="text-[8px] font-bold tracking-wider leading-none">Cidade de</span>
+                    <span className="text-lg font-black tracking-tighter leading-none my-0.5">Embu</span>
+                    <span className="text-[9px] font-extrabold tracking-wider leading-none">das Artes</span>
+                  </div>
+                  <svg className="w-9 h-9 flex-shrink-0 shadow-sm rounded-md" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100" height="100" rx="8" fill="#00875A" />
+                    <path d="M50 15 L85 50 L50 85 L15 50 Z" fill="#FFCC00" />
+                    <path d="M50 30 L70 50 L50 70 L30 50 Z" fill="#D2143A" />
+                    <circle cx="50" cy="50" r="10" fill="#FFFFFF" />
+                  </svg>
+                </div>
               </div>
 
               {isEntriesLoading && (
