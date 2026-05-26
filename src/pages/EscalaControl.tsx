@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useMemo, Component } from "react";
+import React, { useState, useEffect, useMemo, Component, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import db from "@/api/dbClient";
 import * as XLSX from "xlsx";
@@ -276,6 +276,7 @@ class ErrorBoundary extends Component<any, any> {
 function EscalaControl() {
   const { limits, codes, updateLimits, updateCodes, resetToDefault } = useScaleSettings();
   const queryClient = useQueryClient();
+  const printAreaRef = useRef(null);
 
   // Tabs: "overview" (Quadro & Escalas), "request-portal" (Profissional Escolhe Dias), "approval-desk" (Palavra Final da Gestão), "settings" (Configurações)
   const [activeTab, setActiveTab] = useState<"overview" | "request-portal" | "approval-desk" | "settings">("overview");
@@ -403,7 +404,7 @@ function EscalaControl() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const handleGeneratePDF = async () => {
-    const input = document.getElementById("print-area-container");
+    const input = printAreaRef.current;
     if (!input) {
       toast.error("Erro ao localizar container de impressão.");
       return;
@@ -421,6 +422,9 @@ function EscalaControl() {
       const originalInputStyle = input.style.cssText;
       const originalTableWrapperStyle = tableWrapper ? tableWrapper.style.cssText : "";
       const originalBorderWrapperStyle = borderWrapper ? borderWrapper.style.cssText : "";
+
+      // Add generating-pdf class to show print-only elements and borders during screenshot
+      input.classList.add("generating-pdf");
 
       // Apply robust inline overrides to force full landscape scaling
       input.style.setProperty("width", "1450px", "important");
@@ -451,7 +455,8 @@ function EscalaControl() {
         windowWidth: 1500
       });
 
-      // Restore original styles
+      // Restore original styles and class immediately
+      input.classList.remove("generating-pdf");
       input.style.cssText = originalInputStyle;
       if (tableWrapper) tableWrapper.style.cssText = originalTableWrapperStyle;
       if (borderWrapper) borderWrapper.style.cssText = originalBorderWrapperStyle;
@@ -489,6 +494,10 @@ function EscalaControl() {
       toast.error("Ocorreu um erro ao processar o PDF de visualização.");
     } finally {
       setIsGeneratingPDF(false);
+      const cleanInput = printAreaRef.current;
+      if (cleanInput) {
+        cleanInput.classList.remove("generating-pdf");
+      }
     }
   };
 
@@ -1772,6 +1781,68 @@ function EscalaControl() {
                       margin-top: 30px !important;
                     }
                   }
+
+                  /* High-fidelity PDF capture overrides for html2canvas */
+                  .generating-pdf {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    padding: 20px !important;
+                  }
+                  .generating-pdf .hidden.print\:block {
+                    display: block !important;
+                  }
+                  .generating-pdf .no-print {
+                    display: none !important;
+                  }
+                  .generating-pdf table {
+                    width: 100% !important;
+                    table-layout: fixed !important;
+                    border-collapse: collapse !important;
+                  }
+                  .generating-pdf th, .generating-pdf td {
+                    font-size: 7.5px !important;
+                    padding: 4px 2px !important;
+                    border: 1.5px solid #94a3b8 !important;
+                    color: #000000 !important;
+                    background-color: #ffffff !important;
+                    text-align: center !important;
+                  }
+                  .generating-pdf th:first-child, .generating-pdf td:first-child {
+                    width: 155px !important;
+                    min-width: 155px !important;
+                    position: static !important;
+                    font-size: 8px !important;
+                    font-weight: 900 !important;
+                    text-align: left !important;
+                    padding-left: 6px !important;
+                    box-shadow: none !important;
+                  }
+                  .generating-pdf th {
+                    background-color: #f1f5f9 !important;
+                  }
+                  .generating-pdf .bg-green-100 { background-color: #dcfce7 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-teal-100 { background-color: #ccfbf1 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-sky-100 { background-color: #e0f2fe !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-violet-100 { background-color: #ede9fe !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-purple-100 { background-color: #f3e8ff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-yellow-100 { background-color: #fef9c3 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-orange-100 { background-color: #ffedd5 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-red-200 { background-color: #fee2e2 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  .generating-pdf .bg-sky-200 { background-color: #bae6fd !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  
+                  .generating-pdf .print-legend {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    border: 1.5px solid #cbd5e1 !important;
+                    background-color: #ffffff !important;
+                    margin-top: 15px !important;
+                    padding: 10px !important;
+                    border-radius: 8px !important;
+                  }
+                  .generating-pdf .print-signature {
+                    display: block !important;
+                    margin-top: 30px !important;
+                  }
                 `}</style>
 
                 {/* Top sticky bar */}
@@ -2064,7 +2135,7 @@ function EscalaControl() {
                 )}
 
                 {/* PRINT AREA CONTAINER FOR PDF & PRINT */}
-                <div id="print-area-container" className="flex flex-col space-y-6 bg-background p-4 print:p-0">
+                <div ref={printAreaRef} id="print-area-container" className="flex flex-col space-y-6 bg-background p-4 print:p-0">
                   {/* Print Only Header */}
                   <div className="hidden print:block text-center border-b pb-4 mb-4">
                     <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
