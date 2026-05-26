@@ -159,6 +159,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
     // Only validate absence-type statuses
     if (!ABSENCE_STATUSES.includes(newStatus)) return { ok: true };
 
+    // Existing TEC/ENF per day limits
     if (TEC_ROLES.includes(role)) {
       let count = 0;
       currentEntries.forEach(e => {
@@ -184,6 +185,28 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
       });
       if (count >= (limits?.nurses || 1)) {
         return { ok: false, msg: `⚠️ Dia ${day}: já existe o limite de ${limits?.nurses || 1} folga(s) de Enfermeiro(a) neste plantão.\nEscolha outro dia para lançar a folga.` };
+      }
+    }
+
+    // New validation: máximo 2 folgas extras (FE/FA) por colaborador no mês
+    if (newStatus === 'FE' || newStatus === 'FA') {
+      // Verifica se está substituindo um Plantão (P)
+      const currentStatus = entry.days?.[String(day)] || '';
+      if (currentStatus !== 'P') {
+        return { ok: false, msg: `⚠️ Só é possível substituir um Plantão (P) por ${newStatus}.` };
+      }
+      // Conta folgas extras já registradas no mês para este colaborador
+      const extraCount = currentEntries.reduce((acc, e) => {
+        if (e.id === entryId) return acc;
+        const eEmp = employees.find(em => em.name?.trim() === e.employee_name?.trim());
+        if (eEmp?.role === role) {
+          const status = e.days?.[String(day)] || '';
+          if (status === 'FE' || status === 'FA') acc++;
+        }
+        return acc;
+      }, 0);
+      if (extraCount >= 2) {
+        return { ok: false, msg: `⚠️ Limite de 2 folgas extras (FE/FA) por mês já atingido para ${entry.employee_name}.` };
       }
     }
 
@@ -332,9 +355,10 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                 <React.Fragment key={entry.id}>
                   {showGroupHeader && (
                     <tr className={`${groupColor}`}>
-                      <td colSpan={4 + daysInMonth} className={`sticky left-0 ${groupColor} z-10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider`}>
+                      <td className={`sticky left-0 ${groupColor} z-10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider border-r border-slate-200/50 dark:border-slate-700/50`}>
                         {groupLabel}
                       </td>
+                      <td colSpan={3 + daysInMonth} className={`${groupColor}`}></td>
                     </tr>
                   )}
                 <tr className="border-t border-border hover:bg-muted/20 transition-colors">

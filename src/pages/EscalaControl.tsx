@@ -53,7 +53,9 @@ import {
   Download,
   Settings,
   ShieldOff,
-  Printer
+  Printer,
+  Sun,
+  MoonStar
 } from "lucide-react";
 import { 
   Dialog, 
@@ -125,7 +127,7 @@ const initialShifts: ShiftGroup[] = [
   },
   {
     id: "impar_diurno",
-    name: "Plantão Ímpar Diurno ☀️",
+    name: "Ímpar Diurno",
     timing: "07:00 às 19:00 (Dias Ímpares)",
     type: "ímpar",
     period: "diurno",
@@ -141,24 +143,8 @@ const initialShifts: ShiftGroup[] = [
     ]
   },
   {
-    id: "par_diurno",
-    name: "Plantão Par Diurno ☀️",
-    timing: "07:00 às 19:00 (Dias Pares)",
-    type: "par",
-    period: "diurno",
-    authorizedByManager: false,
-    staff: [
-      { id: "id-201", name: "Enf. Gabriela Prado", role: "nurse", status: "working" },
-      { id: "id-202", name: "Téc. Fábio Melo", role: "technician", status: "working" },
-      { id: "id-203", name: "Téc. Giovanna Reis", role: "technician", status: "working" },
-      { id: "id-204", name: "Téc. Hudson Ferreira", role: "technician", status: "leave" },
-      { id: "id-205", name: "Téc. Isabela Cruz", role: "technician", status: "working" },
-      { id: "id-206", name: "Téc. Jefferson Gomes", role: "technician", status: "working" }
-    ]
-  },
-  {
     id: "impar_noturno",
-    name: "Plantão Ímpar Noturno 🌙",
+    name: "Ímpar Noturno",
     timing: "19:00 às 07:00 (Dias Ímpares)",
     type: "ímpar",
     period: "noturno",
@@ -173,8 +159,24 @@ const initialShifts: ShiftGroup[] = [
     ]
   },
   {
+    id: "par_diurno",
+    name: "Par Diurno",
+    timing: "07:00 às 19:00 (Dias Pares)",
+    type: "par",
+    period: "diurno",
+    authorizedByManager: false,
+    staff: [
+      { id: "id-201", name: "Enf. Gabriela Prado", role: "nurse", status: "working" },
+      { id: "id-202", name: "Téc. Fábio Melo", role: "technician", status: "working" },
+      { id: "id-203", name: "Téc. Giovanna Reis", role: "technician", status: "working" },
+      { id: "id-204", name: "Téc. Hudson Ferreira", role: "technician", status: "leave" },
+      { id: "id-205", name: "Téc. Isabela Cruz", role: "technician", status: "working" },
+      { id: "id-206", name: "Téc. Jefferson Gomes", role: "technician", status: "working" }
+    ]
+  },
+  {
     id: "par_noturno",
-    name: "Plantão Par Noturno 🌙",
+    name: "Par Noturno",
     timing: "19:00 às 07:00 (Dias Pares)",
     type: "par",
     period: "noturno",
@@ -199,7 +201,7 @@ const initialRequests: LeaveRequest[] = [
     memberName: "Téc. Aline Souza",
     memberRole: "technician",
     shiftId: "impar_diurno",
-    shiftName: "Plantão Ímpar Diurno ☀️",
+    shiftName: "Ímpar Diurno",
     requestedDay: 25,
     justification: "Folga adquirida pelo dia trabalhado nas eleições nacionais.",
     status: "pending",
@@ -213,7 +215,7 @@ const initialRequests: LeaveRequest[] = [
     memberName: "Enf. Gabriela Prado",
     memberRole: "nurse",
     shiftId: "par_diurno",
-    shiftName: "Plantão Par Diurno ☀️",
+    shiftName: "Par Diurno",
     requestedDay: 26,
     justification: "Compensação de banco de horas (Banco de Horas de Plantão Extra).",
     status: "pending",
@@ -227,7 +229,7 @@ const initialRequests: LeaveRequest[] = [
     memberName: "Enf. Kátia Silveira",
     memberRole: "nurse",
     shiftId: "impar_noturno",
-    shiftName: "Plantão Ímpar Noturno 🌙",
+    shiftName: "Ímpar Noturno",
     requestedDay: 27,
     justification: "Direito de folga por doação de sangue anual (Atestado protocolado).",
     status: "pending",
@@ -662,7 +664,8 @@ function EscalaControl() {
           bgLight: "bg-amber-100 dark:bg-amber-950/45",
           border: "border-amber-500/20",
           text: "text-amber-700 dark:text-amber-400 font-extrabold",
-          label: "☀️ Ímpar Diurno",
+          label: "Ímpar Diurno",
+          iconNode: <Sun className="w-3.5 h-3.5 inline-block mr-1 text-amber-500 fill-amber-500" />,
           badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
         };
       case "par_diurno":
@@ -672,7 +675,8 @@ function EscalaControl() {
           bgLight: "bg-blue-100 dark:bg-blue-950/45",
           border: "border-blue-500/20",
           text: "text-blue-700 dark:text-blue-450 font-extrabold",
-          label: "☀️ Par Diurno",
+          label: "Par Diurno",
+          iconNode: <Sun className="w-3.5 h-3.5 inline-block mr-1 text-blue-500 fill-blue-500" />,
           badge: "bg-blue-500/10 text-blue-600 dark:text-blue-450 border-blue-500/20"
         };
       case "impar_noturno":
@@ -682,7 +686,8 @@ function EscalaControl() {
           bgLight: "bg-purple-100 dark:bg-purple-950/45",
           border: "border-purple-500/20",
           text: "text-purple-700 dark:text-purple-400 font-extrabold",
-          label: "🌙 Ímpar Noturno",
+          label: "Ímpar Noturno",
+          iconNode: <MoonStar className="w-3.5 h-3.5 inline-block mr-1 text-purple-600 fill-purple-600" />,
           badge: "bg-purple-550/10 text-purple-650 dark:text-purple-400 border-purple-500/20"
         };
       case "par_noturno":
@@ -692,7 +697,8 @@ function EscalaControl() {
           bgLight: "bg-indigo-100 dark:bg-indigo-950/45",
           border: "border-indigo-600/20",
           text: "text-indigo-650 dark:text-indigo-400 font-extrabold",
-          label: "🌙 Par Noturno",
+          label: "Par Noturno",
+          iconNode: <MoonStar className="w-3.5 h-3.5 inline-block mr-1 text-indigo-600 fill-indigo-600" />,
           badge: "bg-indigo-650/10 text-indigo-650 dark:text-indigo-400 border-indigo-600/20"
         };
       case "rt_lideranca":
@@ -701,7 +707,8 @@ function EscalaControl() {
           bgLight: "bg-emerald-100 dark:bg-emerald-950/45",
           border: "border-emerald-600/20",
           text: "text-emerald-700 dark:text-emerald-400 font-extrabold",
-          label: "💼 RT / Liderança",
+          label: "RT / Liderança",
+          iconNode: <Briefcase className="w-3.5 h-3.5 inline-block mr-1 text-emerald-600" />,
           badge: "bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 border-emerald-600/20"
         };
       default:
@@ -711,6 +718,7 @@ function EscalaControl() {
           border: "border-slate-500/20",
           text: "text-slate-700 dark:text-slate-400 font-extrabold",
           label: "Outros",
+          iconNode: null,
           badge: "bg-slate-500/10 text-slate-600 border-slate-500/20"
         };
     }
@@ -1617,12 +1625,12 @@ function EscalaControl() {
                       <span className="text-muted-foreground text-[11px] font-semibold">Ímpar Diurno</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-blue-500 text-white shadow-sm">P</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold">Par Diurno</span>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-purple-500 text-white shadow-sm">P</span>
                       <span className="text-muted-foreground text-[11px] font-semibold">Ímpar Noturno</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-blue-500 text-white shadow-sm">P</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold">Par Diurno</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-indigo-650 text-white shadow-sm">P</span>
@@ -1688,14 +1696,6 @@ function EscalaControl() {
                     <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "impar_diurno" ? "text-white" : "text-amber-600 dark:text-amber-300")}>{shiftCounts.impar_diurno}</span>
                     <span className={cn("text-[10px] font-medium", globalShiftFilter === "impar_diurno" ? "text-amber-100" : "text-amber-500 dark:text-amber-500")}>colaboradores</span>
                   </div>
-                  {/* Diurno B */}
-                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                    globalShiftFilter === "par_diurno" ? "bg-blue-500 border-blue-600 shadow-blue-200 dark:shadow-blue-900" : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
-                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_diurno" ? "all" : "par_diurno")}>
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-700 dark:text-blue-400")}>Diurno B</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-600 dark:text-blue-300")}>{shiftCounts.par_diurno}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_diurno" ? "text-blue-100" : "text-blue-500 dark:text-blue-500")}>colaboradores</span>
-                  </div>
                   {/* Noturno A */}
                   <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
                     globalShiftFilter === "impar_noturno" ? "bg-purple-600 border-purple-700 shadow-purple-200 dark:shadow-purple-900" : "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
@@ -1703,6 +1703,14 @@ function EscalaControl() {
                     <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "impar_noturno" ? "text-white" : "text-purple-700 dark:text-purple-400")}>Noturno A</span>
                     <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "impar_noturno" ? "text-white" : "text-purple-600 dark:text-purple-300")}>{shiftCounts.impar_noturno}</span>
                     <span className={cn("text-[10px] font-medium", globalShiftFilter === "impar_noturno" ? "text-purple-100" : "text-purple-500 dark:text-purple-500")}>colaboradores</span>
+                  </div>
+                  {/* Diurno B */}
+                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
+                    globalShiftFilter === "par_diurno" ? "bg-blue-500 border-blue-600 shadow-blue-200 dark:shadow-blue-900" : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_diurno" ? "all" : "par_diurno")}>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-700 dark:text-blue-400")}>Diurno B</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-600 dark:text-blue-300")}>{shiftCounts.par_diurno}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_diurno" ? "text-blue-100" : "text-blue-500 dark:text-blue-500")}>colaboradores</span>
                   </div>
                   {/* Noturno B */}
                   <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
@@ -1751,9 +1759,18 @@ function EscalaControl() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todas as Escalas</SelectItem>
-                        {shifts.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                        ))}
+                        {shifts.map((s) => {
+                          let icon = <Sun className="w-3 h-3 inline-block mr-1.5 text-amber-500 fill-amber-500" />;
+                          if (s.id === "rt_lideranca") icon = <Briefcase className="w-3 h-3 inline-block mr-1.5 text-slate-500" />;
+                          else if (s.id.includes("noturno")) icon = <MoonStar className="w-3 h-3 inline-block mr-1.5 text-slate-800 fill-slate-800 dark:text-slate-200 dark:fill-slate-200" />;
+                          return (
+                            <SelectItem key={s.id} value={s.id}>
+                              <div className="flex items-center">
+                                {icon} {s.name}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2740,13 +2757,15 @@ function EscalaControl() {
                     </SelectTrigger>
                     <SelectContent>
                       {shifts.map((group) => {
-                        let icon = "☀️";
-                        if (group.id === "rt_lideranca") icon = "💼";
-                        else if (group.id.includes("noturno")) icon = "🌙";
+                        let icon = <Sun className="w-3.5 h-3.5 inline-block mr-1.5 text-amber-500 fill-amber-500" />;
+                        if (group.id === "rt_lideranca") icon = <Briefcase className="w-3.5 h-3.5 inline-block mr-1.5 text-slate-500" />;
+                        else if (group.id.includes("noturno")) icon = <MoonStar className="w-3.5 h-3.5 inline-block mr-1.5 text-slate-800 fill-slate-800 dark:text-slate-200 dark:fill-slate-200" />;
                         const label = group.name.replace(/Plantão|RT & Liderança/g, "").trim();
                         return (
                           <SelectItem key={group.id} value={group.id} className="text-xs font-semibold cursor-pointer">
-                            {icon} {label} ({group.staff.length} Profissionais)
+                            <div className="flex items-center">
+                              {icon} {label} ({group.staff.length} Profissionais)
+                            </div>
                           </SelectItem>
                         );
                       })}
@@ -2967,12 +2986,12 @@ function EscalaControl() {
                                   <span className="font-extrabold text-xs self-start leading-none">{day}</span>
                                   
                                   <span className={cn(
-                                    "text-[8px] font-black uppercase tracking-tighter px-1.5 py-[1px] rounded-sm self-end",
+                                    "text-[8px] font-black uppercase tracking-tighter px-1.5 py-[1px] rounded-sm self-end flex items-center",
                                     isSelected 
                                       ? "bg-blue-750 text-blue-100" 
                                       : details.badgeClass
                                   )}>
-                                    {details.label}
+                                    {details.iconNode} {details.label}
                                   </span>
 
                                   {isRequestDay && (

@@ -67,16 +67,23 @@ const getCollection = (name) => {
       // Force overwrite if it is stale or length is different between employees and schedules
       const storedEmployees = localStorage.getItem('escala_db_Employee');
       const storedSchedules = localStorage.getItem('escala_db_ScheduleEntry');
+      const DB_VERSION = 3;
+      const storedVersion = localStorage.getItem('escala_db_version');
       let needsReset = false;
       
-      if (storedEmployees) {
+      if (storedVersion !== String(DB_VERSION)) {
+        needsReset = true;
+        localStorage.setItem('escala_db_version', String(DB_VERSION));
+      }
+
+      if (storedEmployees && !needsReset) {
         try {
           const parsedEmp = JSON.parse(storedEmployees);
           if (parsedEmp.length !== importedEmployees.length) {
             needsReset = true;
           }
         } catch (e) { needsReset = true; }
-      } else { needsReset = true; }
+      } else if (!storedEmployees) { needsReset = true; }
       
       if (storedSchedules) {
         try {
