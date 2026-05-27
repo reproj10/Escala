@@ -98,6 +98,11 @@
 
 /* Print styles */
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 5mm;
+  }
+
   /* Ultimate Print Isolation: Hide everything outside print area but keep normal document flow for pagination */
   body *:not(#print-area-container):not(:has(#print-area-container)):not(#print-area-container *) {
     display: none !important;

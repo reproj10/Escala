@@ -2469,7 +2469,7 @@ function EscalaControl() {
                               </th>
                             );
                           })}
-                          <th style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', width: '60px', minWidth: '60px', height: '45px' }}>
+                          <th style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '60px', minWidth: '60px', height: '45px' }}>
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               Ass.
                             </div>
@@ -2625,7 +2625,7 @@ function EscalaControl() {
                                         </td>
                                       );
                                     })}
-                                    <td style={{ padding: 0, width: '60px', height: '40px' }}>
+                                    <td style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '60px', height: '40px' }}>
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(100,116,139,0.3)', fontFamily: 'monospace', fontSize: '10px', whiteSpace: 'nowrap' }}>
                                         ____
                                       </div>
