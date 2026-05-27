@@ -310,7 +310,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                   <span className="font-mono">{SHIFT_HOURS[shiftType]}</span>
                 </span>
               </td>
-              <td colSpan={daysInMonth + 1} className="px-3 py-1.5 text-[10px] text-primary/70 font-medium">
+              <td colSpan={daysInMonth + 1} className="px-3 py-1.5 text-[10px] text-primary/70 font-medium border-r border-border">
                 Escala 12×36 · Junho 2026 · UPA Zilda Arns
               </td>
             </tr>
@@ -328,7 +328,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                  </th>
                );
              })}
-             <th className="px-1 py-1 font-semibold min-w-[45px]">Ass.</th>
+             <th className="px-1 py-1 font-semibold min-w-[45px] border-r border-border">Ass.</th>
             </tr>
           </thead>
           <tbody>
@@ -358,7 +358,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                       <td className={`sticky left-0 ${groupColor} z-10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider border-r border-slate-200/50 dark:border-slate-700/50`}>
                         {groupLabel}
                       </td>
-                      <td colSpan={3 + daysInMonth} className={`${groupColor}`}></td>
+                      <td colSpan={3 + daysInMonth} className={`${groupColor} border-r border-border`}></td>
                     </tr>
                   )}
                 <tr className="border-t border-border hover:bg-muted/20 transition-colors">
@@ -409,7 +409,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                       />
                     );
                   })}
-                  <td className="px-1 py-0.5 text-center text-muted-foreground/30 font-mono text-[9px] select-none whitespace-nowrap">
+                  <td className="px-1 py-0.5 text-center text-muted-foreground/30 font-mono text-[9px] select-none whitespace-nowrap border-r border-border">
                     ____
                   </td>
                 </tr>
@@ -434,7 +434,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                   </td>
                 );
               })}
-              <td className="bg-muted/50" />
+              <td className="bg-muted/50 border-r border-border" />
             </tr>
             <tr className="border-t border-border bg-blue-50/50 dark:bg-blue-950/10">
               <td className="sticky left-0 bg-blue-50/50 dark:bg-blue-950/10 z-10 px-3 py-1 text-[10px] font-semibold text-blue-700 dark:text-blue-300" colSpan={3}>
@@ -454,7 +454,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                   </td>
                 );
               })}
-              <td className="bg-blue-50/50 dark:bg-blue-950/10" />
+              <td className="bg-blue-50/50 dark:bg-blue-950/10 border-r border-border" />
             </tr>
             <tr className="border-t border-border bg-teal-50/50 dark:bg-teal-950/10">
               <td className="sticky left-0 bg-teal-50/50 dark:bg-teal-950/10 z-10 px-3 py-1 text-[10px] font-semibold text-teal-700 dark:text-teal-300" colSpan={3}>
@@ -474,7 +474,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                   </td>
                 );
               })}
-              <td className="bg-teal-50/50 dark:bg-teal-950/10" />
+              <td className="bg-teal-50/50 dark:bg-teal-950/10 border-r border-border" />
             </tr>
           </tbody>
         </table>

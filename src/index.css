@@ -137,7 +137,7 @@
   /* FORCE RIGHT BORDER ON LAST COLUMN */
   #print-area-container table th:last-child,
   #print-area-container table td:last-child {
-    border-right: 1px solid #e2e8f0 !important;
+    border-right: 1.5px solid #94a3b8 !important;
   }
   
   /* BRUTE FORCE: html2canvas is rendering the text at the bottom. 
