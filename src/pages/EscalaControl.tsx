@@ -418,8 +418,8 @@ function EscalaControl() {
       const tableWrapper = input.querySelector(".overflow-x-auto");
       const borderWrapper = input.querySelector(".border.rounded-xl");
 
-      // Select print-only elements (legend + signature) that are hidden by default
-      const printOnlyElements = input.querySelectorAll(".pdf-print-footer");
+      // Select print-only elements (legend + signature + header) that are hidden by default
+      const printOnlyElements = input.querySelectorAll(".pdf-print-footer, .pdf-print-header");
       const hiddenOriginalDisplays: string[] = [];
 
       // Backup original styles
@@ -431,20 +431,45 @@ function EscalaControl() {
       // Add generating-pdf class to show print-only elements and borders during screenshot
       input.classList.add("generating-pdf");
 
-      // Force show the hidden print-only elements (legend + signature)
+      // Force show the hidden print-only elements
       printOnlyElements.forEach((el: Element) => {
         const htmlEl = el as HTMLElement;
         hiddenOriginalDisplays.push(htmlEl.style.display);
-        htmlEl.style.setProperty("display", "block", "important");
+        const isHeader = htmlEl.classList.contains("pdf-print-header");
+        htmlEl.style.setProperty("display", isHeader ? "flex" : "block", "important");
       });
+
+      // Temporarily neutralize all parent positioning and transforms to prevent html2canvas offset bugs
+      const parentsToUnclip: { el: HTMLElement; overflow: string; position: string; transform: string; display: string; left: string; top: string }[] = [];
+      let parentNode = input.parentElement;
+      while (parentNode && parentNode !== document.body) {
+        parentsToUnclip.push({ 
+          el: parentNode, 
+          overflow: parentNode.style.overflow,
+          position: parentNode.style.position,
+          transform: parentNode.style.transform,
+          display: parentNode.style.display,
+          left: parentNode.style.left,
+          top: parentNode.style.top
+        });
+        parentNode.style.setProperty("overflow", "visible", "important");
+        parentNode.style.setProperty("position", "static", "important");
+        parentNode.style.setProperty("transform", "none", "important");
+        parentNode.style.setProperty("display", "block", "important");
+        parentNode.style.setProperty("left", "auto", "important");
+        parentNode.style.setProperty("top", "auto", "important");
+        parentNode = parentNode.parentElement;
+      }
 
       // Rely on clean CSS-only overrides for position:static, left:auto, and transform:none.
 
-      // Apply robust inline overrides to force full landscape scaling
-      // 2200px wide ensures width:height ratio > 1.41 (A4 landscape ratio)
-      // so the PDF image always fills full page WIDTH with no side margins
-      input.style.setProperty("width", "2200px", "important");
-      input.style.setProperty("min-width", "2200px", "important");
+      // Apply robust inline overrides to wrap the table exactly
+      // html2canvas crashes with max-content, so we calculate exact pixel width
+      const tableEl = input.querySelector("table");
+      const exactWidth = tableEl ? tableEl.scrollWidth + 32 : 1800; // 32px for padding
+      
+      input.style.setProperty("width", `${exactWidth}px`, "important");
+      input.style.setProperty("min-width", `${exactWidth}px`, "important");
       input.style.setProperty("max-width", "none", "important");
       input.style.setProperty("height", "auto", "important");
       input.style.setProperty("overflow", "visible", "important");
@@ -464,12 +489,10 @@ function EscalaControl() {
       await new Promise(r => setTimeout(r, 500));
 
       const canvas = await html2canvas(input, {
-        scale: 2,       // good quality, lower scale at 2200px base = ~4400px final
+        scale: 2,       // good quality for the generated image
         useCORS: true,
         backgroundColor: "#ffffff",
-        logging: false,
-        width: 2200,
-        windowWidth: 2250
+        logging: false
       });
 
       // Restore original styles, scroll position, and class immediately
@@ -480,6 +503,16 @@ function EscalaControl() {
         tableWrapper.scrollLeft = originalScrollLeft;
       }
       if (borderWrapper) borderWrapper.style.cssText = originalBorderWrapperStyle;
+
+      // Restore parent overflow and positioning
+      parentsToUnclip.forEach(({ el, overflow, position, transform, display, left, top }) => {
+        el.style.overflow = overflow;
+        el.style.position = position;
+        el.style.transform = transform;
+        el.style.display = display;
+        el.style.left = left;
+        el.style.top = top;
+      });
 
       // Sticky elements are perfectly managed via CSS overrides.
 
@@ -517,11 +550,10 @@ function EscalaControl() {
 
       pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
 
-      // Open in new tab
-      const pdfBlob = pdf.output("bloburl");
-      window.open(pdfBlob, "_blank");
+      // Download the PDF instead of opening in a new tab to bypass popup blockers
+      pdf.save(`Escala_de_Enfermagem.pdf`);
 
-      toast.success("Visualização gerada com sucesso! Verifique a nova aba.");
+      toast.success("PDF baixado com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       toast.error("Ocorreu um erro ao processar o PDF de visualização.");
@@ -2120,28 +2152,7 @@ function EscalaControl() {
                       <ShieldOff className="h-3 w-3" /> Destravar Escala
                     </Button>
                     
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleGeneratePDF} 
-                      disabled={isGeneratingPDF}
-                      className="gap-1.5 h-7 text-xs no-print border-indigo-200 hover:bg-indigo-50/50 dark:border-indigo-900/50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 font-semibold hidden lg:flex"
-                    >
-                      <Download className="h-3.5 w-3.5" /> 
-                      {isGeneratingPDF ? "Gerando..." : "Visualizar PDF (Paisagem)"}
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleGeneratePDF} 
-                      disabled={isGeneratingPDF}
-                      className="gap-1.5 h-7 text-xs no-print border-purple-200 hover:bg-purple-50/50 dark:border-purple-900/50 dark:hover:bg-purple-950/20 text-purple-600 dark:text-purple-400 font-semibold hidden lg:flex ml-1"
-                    >
-                      <Download className="h-3.5 w-3.5 text-purple-500" /> 
-                      {isGeneratingPDF ? "Gerando..." : "Visualizar PDF (Paisagem 2)"}
-                    </Button>
-                    
+
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -2150,7 +2161,7 @@ function EscalaControl() {
                     >
                       <Printer className="h-3.5 w-3.5 text-emerald-500" /> Imprimir Escala
                     </Button>
-                    
+
                     <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs no-print hidden xl:flex">
                       <Lock className="h-3 w-3" /> Bloquear Mês
                     </Button>
@@ -2362,14 +2373,33 @@ function EscalaControl() {
                 {/* PRINT AREA CONTAINER FOR PDF & PRINT */}
                 <div ref={printAreaRef} id="print-area-container" className="flex flex-col space-y-6 bg-background p-4 print:p-0 w-full max-w-full overflow-hidden">
                   {/* Print Only Header */}
-                  <div className="print-only-block hidden print:block text-center border-b pb-4 mb-4">
-                    <h1 className="text-lg font-black uppercase text-slate-900">UPA - Unidade de Pronto Atendimento</h1>
-                    <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mt-0.5">
-                      Escala de Trabalho Mensal - Enfermagem
-                    </h2>
-                    <p className="text-[10px] font-mono text-slate-500 mt-1">
-                      Mês de Referência: {['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} / {selectedYear}
-                    </p>
+                  <div className="pdf-print-header hidden force-print-flex items-center justify-between border-b border-slate-300 pb-4 mb-4 w-full">
+                    <div className="flex-shrink-0 w-[200px] flex justify-start">
+                      <img src="/irdesi.png" alt="IRDESI" className="h-14 object-contain" />
+                    </div>
+                    <div className="flex-grow text-center flex flex-col items-center justify-center">
+                      <h1 className="text-[14px] font-black uppercase text-slate-900 tracking-wider">
+                        ESCALA DE ENFERMAGEM - {globalShiftFilter === "all" ? "GERAL" : (() => {
+                          const sId = globalShiftFilter;
+                          if (sId === 'impar_diurno') return 'DIURNO A';
+                          if (sId === 'par_diurno') return 'DIURNO B';
+                          if (sId === 'impar_noturno') return 'NOTURNO A';
+                          if (sId === 'par_noturno') return 'NOTURNO B';
+                          return shifts.find(s => s.id === sId)?.name?.toUpperCase() || "";
+                        })()}
+                      </h1>
+                      <h2 className="text-[10px] font-semibold text-slate-700 mt-0.5">
+                        Rua Poços de Caldas nº 65 - Jardim Santo Eduardo - CEP 06823-310
+                      </h2>
+                      <div className="text-[11px] font-extrabold text-slate-900 mt-1.5 flex items-center justify-center gap-10">
+                        <span>EMBU DAS ARTES</span>
+                        <span className="uppercase">{['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth - 1]} {selectedYear}</span>
+                        <span>CNES: 7168456</span>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0 w-[200px] flex justify-end">
+                      <img src="/embu.png" alt="Prefeitura" className="h-14 object-contain" />
+                    </div>
                   </div>
 
                   {/* INTEGRATED SHEET TABLE */}

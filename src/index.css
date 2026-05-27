@@ -98,10 +98,101 @@
 
 /* Print styles */
 @media print {
+  /* Ultimate Print Isolation: Hide everything outside print area but keep normal document flow for pagination */
+  body *:not(#print-area-container):not(:has(#print-area-container)):not(#print-area-container *) {
+    display: none !important;
+  }
+
+  /* Un-modal all parents to restore native Chrome multi-page pagination */
+  body, html, #root, :has(#print-area-container) {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    transform: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #print-area-container {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* AGGRESSIVE COMPRESSION TO FORCE 1-PAGE FIT */
+  #print-area-container table td,
+  #print-area-container table th {
+    height: 22px !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+    line-height: 22px !important;
+  }
+  
+  /* BRUTE FORCE: html2canvas is rendering the text at the bottom. 
+     We will literally move it 6 pixels up to physically center it ONLY during PDF generation */
+  .generating-pdf .colaborador-cell span,
+  .generating-pdf .coren-cell {
+    position: relative !important;
+    top: -6px !important;
+  }
+  
+  #print-area-container .group-header-cell {
+    height: 18px !important;
+  }
+
+  #print-area-container table td span.inline-flex {
+    height: 16px !important;
+    width: 16px !important;
+    font-size: 8px !important;
+  }
+
+  #print-area-container .categoria-cell span.inline-flex {
+    padding: 0px 4px !important;
+    font-size: 8px !important;
+    height: 14px !important;
+    width: auto !important;
+  }
+
+  #print-area-container table td,
+  #print-area-container table th,
+  #print-area-container table span, 
+  #print-area-container table div {
+    font-size: 9px !important;
+  }
+
+  .pdf-print-header {
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .pdf-print-header img {
+    height: 40px !important;
+  }
+
+  .pdf-print-footer {
+    margin-top: 8px !important;
+  }
+
+  .pdf-print-footer .print-legend {
+    padding: 6px 12px !important;
+  }
+
+  /* Prevent page breaks inside the scale */
+  #print-area-container, table, tr, td, th {
+    page-break-inside: avoid !important;
+  }
+
+  /* Reliable flex display for print header */
+  .force-print-flex {
+    display: flex !important;
+  }
+
   /* Show the PDF footer (legend + signature) when printing natively */
   .pdf-print-footer {
     display: block !important;
   }
+  
   /* Hide non-print UI elements */
   .no-print {
     display: none !important;

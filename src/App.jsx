@@ -8,7 +8,6 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
-import Schedule from '@/pages/Schedule';
 import NewEmployee from '@/pages/NewEmployee';
 import SearchPage from '@/pages/Search';
 import Management from '@/pages/Management';
@@ -21,7 +20,6 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/escala" element={<Schedule />} />
         <Route path="/novo" element={<NewEmployee />} />
         <Route path="/pesquisar" element={<SearchPage />} />
         <Route path="/gerenciamento" element={<Management />} />

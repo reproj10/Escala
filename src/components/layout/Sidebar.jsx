@@ -17,7 +17,6 @@ import ThemeToggle from './ThemeToggle';
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/escala', icon: CalendarDays, label: 'Escala' },
   { path: '/novo', icon: Plus, label: 'Novo Colaborador' },
   { path: '/pesquisar', icon: Search, label: 'Pesquisar' },
   { path: '/gerenciamento', icon: Users, label: 'Gerenciamento' },
