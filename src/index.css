@@ -134,6 +134,12 @@
     line-height: 22px !important;
   }
   
+  /* FORCE RIGHT BORDER ON LAST COLUMN */
+  #print-area-container table th:last-child,
+  #print-area-container table td:last-child {
+    border-right: 1px solid #e2e8f0 !important;
+  }
+  
   /* BRUTE FORCE: html2canvas is rendering the text at the bottom. 
      We will literally move it 6 pixels up to physically center it ONLY during PDF generation */
   .generating-pdf .colaborador-cell span,
