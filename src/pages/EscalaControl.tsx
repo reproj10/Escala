@@ -56,7 +56,11 @@ import {
   Printer,
   Sun,
   MoonStar,
-  Settings2
+  Settings2,
+  MoreHorizontal,
+  Edit2,
+  ArrowRightLeft,
+  Stethoscope
 } from "lucide-react";
 import { 
   Dialog, 
@@ -631,6 +635,16 @@ function EscalaControl() {
   const [editingShiftId, setEditingShiftId] = useState("");
   const [editingCellStatus, setEditingCellStatus] = useState<"default" | "duty" | "off-duty" | "leave-approved" | "leave-pending" | "FE" | "FA" | "BH" | "LM">("default");
   const [activeEditTab, setActiveEditTab] = useState("status");
+
+  // Popup de exclusão
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
+
+  // Popup de transferência de turno
+  const [transferConfirm, setTransferConfirm] = useState<{ id: string, name: string, currentShiftId: string } | null>(null);
+  const [transferTargetShift, setTransferTargetShift] = useState<string>("");
+
+  // Popup de histórico
+  const [historyModal, setHistoryModal] = useState<{ id: string, name: string, role: string, shiftId: string } | null>(null);
 
   // Popup de confirmação de 2ª etapa (antes de salvar na escala)
   const [pendingConfirm, setPendingConfirm] = useState<{
@@ -1574,7 +1588,7 @@ function EscalaControl() {
     toast.success(`${finalName} integrado à escala do ${currentActiveShift.name}.`);
   };
 
-  // Delete professional
+  // Delete professional (confirmed)
   const handleRemoveStaff = (id: string, name: string) => {
     setShifts(prev => {
       return prev.map(s => {
@@ -1585,7 +1599,53 @@ function EscalaControl() {
         };
       });
     });
-    toast.info(`${name} desagregado da escala.`);
+    toast.info(`${name} removido(a) da escala.`);
+    setDeleteConfirm(null);
+  };
+
+  // Toggle role in active shift
+  const handleToggleRole = (id: string, currentRole: "nurse" | "technician") => {
+    setShifts(prev => prev.map(s => {
+      if (s.id !== activeShiftId) return s;
+      return {
+        ...s,
+        staff: s.staff.map(m => m.id === id ? { ...m, role: currentRole === "nurse" ? "technician" : "nurse" } : m)
+      };
+    }));
+    toast.success(currentRole === "nurse" ? `Função alterada para Técnico de Enfermagem.` : `Função alterada para Enfermeiro Supervisor.`);
+  };
+
+  // Transfer shift function
+  const executeTransferShift = () => {
+    if (!transferConfirm || !transferTargetShift) return;
+    
+    setShifts(prev => {
+      let targetMember: StaffMember | null = null;
+      // Remove do turno atual
+      const updatedShifts = prev.map(s => {
+        if (s.id === transferConfirm.currentShiftId) {
+          const found = s.staff.find(m => m.id === transferConfirm.id);
+          if (found) targetMember = found;
+          return { ...s, staff: s.staff.filter(m => m.id !== transferConfirm.id) };
+        }
+        return s;
+      });
+
+      // Adiciona no turno alvo
+      if (targetMember) {
+        return updatedShifts.map(s => {
+          if (s.id === transferTargetShift) {
+            return { ...s, staff: [...s.staff, targetMember!] };
+          }
+          return s;
+        });
+      }
+      return updatedShifts;
+    });
+
+    toast.success(`${transferConfirm.name} transferido(a) com sucesso!`);
+    setTransferConfirm(null);
+    setTransferTargetShift("");
   };
 
   // Add collaborator request
@@ -3905,7 +3965,7 @@ function EscalaControl() {
                       <TableHead className="font-bold text-xs uppercase text-slate-500">Nome assistencial</TableHead>
                       <TableHead className="font-bold text-xs uppercase text-slate-500">Função</TableHead>
                       <TableHead className="font-bold text-xs uppercase text-slate-500">Trabalho / Folga</TableHead>
-                      <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Ação</TableHead>
+                      <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3947,14 +4007,39 @@ function EscalaControl() {
                               {member.status === "working" ? "Em Plantão Ativo" : "Folga Cadastrada"}
                             </button>
                           </TableCell>
-                          <TableCell className="py-3 text-right">
-                            <Button 
-                              variant="ghost" 
-                              onClick={() => handleRemoveStaff(member.id, member.name)}
-                              className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-500/10 rounded-lg"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                          <TableCell className="py-3 text-right pr-4">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                                  <span className="sr-only">Abrir menu de ações</span>
+                                  <MoreHorizontal className="h-4 w-4 text-slate-500" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuLabel className="text-xs text-muted-foreground uppercase">Ações do Colaborador</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleToggleRole(member.id, member.role)} className="cursor-pointer text-xs font-medium">
+                                  <Edit2 className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                                  Alterar Função
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTransferConfirm({ id: member.id, name: member.name, currentShiftId: activeShiftId })} className="cursor-pointer text-xs font-medium">
+                                  <ArrowRightLeft className="mr-2 h-3.5 w-3.5 text-amber-500" />
+                                  Transferir de Turno
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setHistoryModal({ id: member.id, name: member.name, role: member.role, shiftId: activeShiftId })} className="cursor-pointer text-xs font-medium">
+                                  <FileCheck className="mr-2 h-3.5 w-3.5 text-emerald-500" />
+                                  Ver Histórico
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => setDeleteConfirm({ id: member.id, name: member.name })}
+                                  className="cursor-pointer text-xs font-bold text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50"
+                                >
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                  Excluir da Equipe
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
@@ -4693,6 +4778,121 @@ function EscalaControl() {
           </Card>
         </div>
       )}
+      {/* Modal de Confirmação de Exclusão de Colaborador */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <DialogContent className="sm:max-w-[425px] overflow-hidden border-destructive/20 shadow-2xl shadow-destructive/10">
+          <div className="absolute top-0 left-0 w-full h-1 bg-destructive" />
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2 font-black text-lg">
+              <div className="bg-destructive/10 p-2 rounded-full">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription className="pt-3 pb-2 text-sm leading-relaxed text-muted-foreground">
+              Você está prestes a excluir <strong className="text-foreground">{deleteConfirm?.name}</strong> desta equipe de plantão.
+              <br /><br />
+              Essa ação <strong className="text-destructive">não pode ser desfeita</strong> e pode afetar imediatamente o dimensionamento do setor.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4 border-t border-border/40 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="font-bold">
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                if (deleteConfirm) {
+                  handleRemoveStaff(deleteConfirm.id, deleteConfirm.name);
+                }
+              }}
+              className="font-bold"
+            >
+              Sim, excluir da escala
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Transferência de Turno */}
+      <Dialog open={!!transferConfirm} onOpenChange={(open) => !open && setTransferConfirm(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black">
+              <ArrowRightLeft className="h-5 w-5 text-amber-500" />
+              Transferir Colaborador
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-xs">
+              Selecione o novo turno/equipe para onde deseja transferir <strong className="text-foreground">{transferConfirm?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-xs font-bold text-muted-foreground mb-2 block">Turno Destino</Label>
+            <Select value={transferTargetShift} onValueChange={setTransferTargetShift}>
+              <SelectTrigger className="w-full text-xs font-semibold">
+                <SelectValue placeholder="Selecione um turno..." />
+              </SelectTrigger>
+              <SelectContent>
+                {shifts.filter(s => s.id !== transferConfirm?.currentShiftId).map(s => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferConfirm(null)} className="h-9 text-xs font-bold">Cancelar</Button>
+            <Button disabled={!transferTargetShift} onClick={executeTransferShift} className="h-9 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white">Confirmar Transferência</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Histórico */}
+      <Dialog open={!!historyModal} onOpenChange={(open) => !open && setHistoryModal(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black">
+              <FileCheck className="h-5 w-5 text-emerald-500" />
+              Histórico do Colaborador
+            </DialogTitle>
+            <DialogDescription className="pt-1 text-xs">
+              Métricas e resumos recentes baseados na escala atual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-lg border flex gap-4 items-center">
+              <div className="h-10 w-10 bg-emerald-500/10 rounded-full flex items-center justify-center">
+                <User className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">{historyModal?.name}</p>
+                <p className="text-xs text-muted-foreground uppercase">{historyModal?.role === 'nurse' ? 'Enfermeiro(a)' : 'Téc. Enfermagem'} • {shifts.find(s => s.id === historyModal?.shiftId)?.name}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border p-3 rounded-xl bg-card">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Plantões Cumpridos</p>
+                <p className="text-2xl font-black text-foreground">
+                  {historyModal ? Object.values(allProfessionals.find(p => p.id === historyModal.id)?.days || {}).filter(d => d === 'P').length : 0}
+                </p>
+              </div>
+              <div className="border p-3 rounded-xl bg-card">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Folgas & Ausências</p>
+                <p className="text-2xl font-black text-destructive">
+                  {historyModal ? Object.values(allProfessionals.find(p => p.id === historyModal.id)?.days || {}).filter(d => d !== 'P' && d !== '-').length : 0}
+                </p>
+              </div>
+            </div>
+            
+            <div className="text-[11px] text-muted-foreground bg-primary/5 p-3 rounded-lg border border-primary/10">
+              ℹ️ O log completo de auditoria das alterações manuais da escala (com horários e responsáveis) será integrado junto ao módulo de fechamento de folha.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setHistoryModal(null)} className="h-9 text-xs font-bold w-full">Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
