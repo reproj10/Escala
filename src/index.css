@@ -147,6 +147,11 @@
     position: relative !important;
     top: -6px !important;
   }
+  .generating-pdf .colaborador-cell span,
+  .generating-pdf .coren-cell {
+    position: relative !important;
+    top: -6px !important;
+  }
   
   #print-area-container .group-header-cell {
     height: 18px !important;
@@ -232,4 +237,16 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* 
+  Regras de PDF precisam ficar FORA do @media print! 
+  O html2canvas tira "foto" da tela normal (screen), não da tela de impressão.
+*/
+.generating-pdf .colaborador-cell div,
+.generating-pdf .colaborador-header div {
+  justify-content: center !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding-left: 0 !important;
 }

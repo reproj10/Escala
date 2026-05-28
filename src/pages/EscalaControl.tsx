@@ -373,7 +373,7 @@ function EscalaControl() {
   const [isGlobalScaleOpen, setIsGlobalScaleOpen] = useState(false);
   const [isGlobalScaleMaximized, setIsGlobalScaleMaximized] = useState(true);
   const [globalRoleFilter, setGlobalRoleFilter] = useState<"all" | "nurse" | "technician">("all");
-  const [globalShiftFilter, setGlobalShiftFilter] = useState<string>("all");
+  const [globalShiftFilter, setGlobalShiftFilter] = useState<string>("impar_diurno");
   const [globalSearch, setGlobalSearch] = useState("");
   const [isExcelMode, setIsExcelMode] = useState(false);
   const [selectedExcelCell, setSelectedExcelCell] = useState<{ memberName: string; day: number; colLetter: string; rowNum: number; status: string } | null>(null);
@@ -492,7 +492,9 @@ function EscalaControl() {
         scale: 2,       // good quality for the generated image
         useCORS: true,
         backgroundColor: "#ffffff",
-        logging: false
+        logging: false,
+        width: exactWidth,
+        windowWidth: exactWidth
       });
 
       // Restore original styles, scroll position, and class immediately
@@ -550,10 +552,41 @@ function EscalaControl() {
 
       pdf.addImage(imgData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
 
-      // Download the PDF instead of opening in a new tab to bypass popup blockers
-      pdf.save(`Escala_de_Enfermagem.pdf`);
+      let shiftSuffix = "Geral";
+      if (globalShiftFilter === 'impar_diurno') shiftSuffix = 'Diurno_A';
+      else if (globalShiftFilter === 'par_diurno') shiftSuffix = 'Diurno_B';
+      else if (globalShiftFilter === 'impar_noturno') shiftSuffix = 'Noturno_A';
+      else if (globalShiftFilter === 'par_noturno') shiftSuffix = 'Noturno_B';
+      const pdfFilename = `Escala_de_Enfermagem_${shiftSuffix}.pdf`;
 
-      toast.success("PDF baixado com sucesso!");
+      try {
+        if ('showSaveFilePicker' in window) {
+          const pdfBlob = pdf.output('blob');
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: pdfFilename,
+            types: [{
+              description: 'PDF Document',
+              accept: {'application/pdf': ['.pdf']},
+            }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(pdfBlob);
+          await writable.close();
+          toast.success("PDF salvo no local escolhido!");
+        } else {
+          // Fallback para navegadores que não suportam a API
+          pdf.save(pdfFilename);
+          toast.success("PDF baixado com sucesso!");
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error("Erro ao salvar usando showSaveFilePicker:", err);
+          pdf.save(pdfFilename);
+          toast.success("PDF baixado com sucesso!");
+        } else {
+          toast.info("Salvamento cancelado pelo usuário.");
+        }
+      }
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       toast.error("Ocorreu um erro ao processar o PDF de visualização.");
@@ -1985,6 +2018,45 @@ function EscalaControl() {
                     height: 100% !important;
                     width: 100% !important;
                   }
+                  .generating-pdf th > div {
+                    display: flex !important;
+                    align-items: center !important;
+                    height: 100% !important;
+                    width: 100% !important;
+                  }
+                  .generating-pdf .print-legend .gap-2 {
+                    display: flex !important;
+                    align-items: center !important;
+                    height: 100% !important;
+                  }
+                  
+                  /* Colaborador needs its specific padding-bottom to stay perfect */
+                  .generating-pdf td.colaborador-cell > div {
+                    padding-bottom: 10px !important;
+                    box-sizing: border-box !important;
+                  }
+
+                  /* Push TEXT inside the badges up, leaving the badge boxes perfectly centered */
+                  .generating-pdf .pdf-inner-text {
+                    position: relative !important;
+                    top: -6px !important;
+                    display: inline-block;
+                  }
+
+                  /* Push up raw text and header numbers */
+                  .generating-pdf th .pdf-content-shift,
+                  .generating-pdf td:not(.colaborador-cell) .pdf-content-shift,
+                  .generating-pdf th > div > span {
+                    position: relative !important;
+                    top: -6px !important;
+                    display: inline-block;
+                  }
+
+                  /* Ajuste estético para centralizar o título da legenda no PDF */
+                  .generating-pdf .print-legend > strong {
+                    position: relative !important;
+                    top: -6px !important;
+                  }
                   .generating-pdf .colaborador-header,
                   .generating-pdf .colaborador-cell {
                     width: 220px !important;
@@ -1994,10 +2066,22 @@ function EscalaControl() {
                     transform: none !important;
                     font-size: 8px !important;
                     font-weight: 900 !important;
-                    text-align: left !important;
-                    padding-left: 6px !important;
+                    text-align: center !important;
+                    padding-left: 0px !important;
                     box-shadow: none !important;
                     background-color: #ffffff !important;
+                  }
+                  .generating-pdf .colaborador-header div,
+                  .generating-pdf .colaborador-cell div {
+                    display: flex !important;
+                    align-items: center !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                  }
+                  .generating-pdf .colaborador-header div span,
+                  .generating-pdf .colaborador-cell div span {
+                    width: 100% !important;
+                    text-align: center !important;
                   }
                   
                   .generating-pdf td:first-child {
@@ -2160,6 +2244,16 @@ function EscalaControl() {
                       className="gap-1.5 h-7 text-xs no-print border-emerald-200 hover:bg-emerald-50/50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-semibold hidden lg:flex"
                     >
                       <Printer className="h-3.5 w-3.5 text-emerald-500" /> Imprimir Escala
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleGeneratePDF}
+                      disabled={isGeneratingPDF}
+                      className="gap-1.5 h-7 text-xs no-print border-blue-200 hover:bg-blue-50/50 dark:border-blue-900/50 dark:hover:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-semibold hidden lg:flex"
+                    >
+                      <Download className={`h-3.5 w-3.5 text-blue-500 ${isGeneratingPDF ? "animate-pulse" : ""}`} /> 
+                      {isGeneratingPDF ? "Gerando..." : "Salvar em PDF"}
                     </Button>
 
                     <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs no-print hidden xl:flex">
@@ -2430,18 +2524,18 @@ function EscalaControl() {
                               height: '45px'
                             }}
                           >
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '12px' }}>
-                              Colaborador
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: isGeneratingPDF ? 'center' : 'flex-start', paddingLeft: isGeneratingPDF ? '0px' : '12px' }}>
+                              <span className="pdf-content-shift">Colaborador</span>
                             </div>
                           </th>
                           <th className="categoria-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '120px', minWidth: '120px', height: '45px' }}>
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              Categoria
+                              <span className="pdf-content-shift">Categoria</span>
                             </div>
                           </th>
                           <th className="coren-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '100px', minWidth: '100px', height: '45px' }}>
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              COREN
+                              <span className="pdf-content-shift">COREN</span>
                             </div>
                           </th>
                           {daysArray.map((d) => {
@@ -2557,11 +2651,12 @@ function EscalaControl() {
                                         padding: 0,
                                         borderRight: '1px solid #e2e8f0',
                                         width: '220px',
-                                        height: '40px'
+                                        height: '40px',
+                                        textAlign: isGeneratingPDF ? 'center' : 'left'
                                       }}
                                     >
-                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '12px', paddingRight: '12px' }}>
-                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#0f172a', lineHeight: 1.3 }} title={p.name}>
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: isGeneratingPDF ? 'center' : 'flex-start', paddingLeft: isGeneratingPDF ? '0px' : '12px', paddingRight: '12px' }}>
+                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#0f172a', lineHeight: 1.3, textAlign: isGeneratingPDF ? 'center' : 'left' }} title={p.name}>
                                           {p.name}
                                         </span>
                                       </div>
@@ -2570,14 +2665,14 @@ function EscalaControl() {
                                     <td className="categoria-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '120px', height: '40px' }}>
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px' }}>
                                         <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[9px] font-semibold border ${roleBadgeColor(p.roleCategory || p.role)}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                          {p.roleCategory || p.role}
+                                          <span className="pdf-inner-text">{p.roleCategory || p.role}</span>
                                         </span>
                                       </div>
                                     </td>
                                     {/* COREN cell */}
                                     <td className="coren-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '100px', height: '40px' }}>
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                                        {p.coren || '—'}
+                                        <span className="pdf-content-shift">{p.coren || '—'}</span>
                                       </div>
                                     </td>
                                     {daysArray.map((d) => {
@@ -2619,7 +2714,7 @@ function EscalaControl() {
                                         >
                                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded text-[9px] font-semibold border ${style.bg} ${style.text} ${style.border}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
-                                              {displayVal}
+                                              <span className="pdf-inner-text">{displayVal}</span>
                                             </span>
                                           </div>
                                         </td>
@@ -2650,51 +2745,51 @@ function EscalaControl() {
                     </strong>
                     <div className="flex flex-wrap gap-x-6 gap-y-3 items-center mt-1">
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Ímpar Diurno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#a855f7', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#a855f7', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Ímpar Noturno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#3b82f6', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#3b82f6', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Par Diurno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#4f46e5', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#4f46e5', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Par Noturno</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#059669', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>P</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#059669', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Administrativo</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#10b981', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>F</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#10b981', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">F</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Deferida</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>?</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">?</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Sob Análise</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#db2777', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>FE</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#db2777', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FE</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Eleitoral</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#06b6d4', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>FA</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#06b6d4', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FA</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Abonada</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#7c3aed', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>BH</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#7c3aed', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">BH</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Banco de Horas</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#b91c1c', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>LM</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#b91c1c', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">LM</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Licença Médica</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded border font-extrabold" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#64748b', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>-</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded border font-extrabold" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#64748b', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">-</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga de Escala</span>
                       </div>
                     </div>
