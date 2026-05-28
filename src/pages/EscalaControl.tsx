@@ -640,6 +640,8 @@ function EscalaControl() {
     day: number;
     statusLabel: string;
     statusCode: string;
+    type?: 'success' | 'warning';
+    warningMsg?: string;
     // Snapshot do editingCell para ser usado pelo saveCellEdits após o dialog fechar
     snapshotCell: {
       memberId: string;
@@ -1220,8 +1222,19 @@ function EscalaControl() {
     const TEC_ROLES = ['technician'];
     const ENF_ROLES = ['nurse'];
 
-    // Só valida se o novo status é um tipo de ausência/folga
-    if (!ABSENCE_STATUSES.includes(newStatus)) return { ok: true };
+    // Só valida ausências pesadas se não for, verifica se é um plantão extra de aviso
+    if (!ABSENCE_STATUSES.includes(newStatus)) {
+      if (newStatus === 'duty') {
+        const isOddDay = day % 2 !== 0;
+        const isImparShift = shiftId.startsWith('impar');
+        const isParShift = shiftId.startsWith('par');
+
+        if ((isImparShift && !isOddDay) || (isParShift && isOddDay)) {
+          return { ok: true, type: 'warning', msg: `⚠️ Você está lançando um Plantão Extra no Dia ${day}, que é o dia de folga padrão do ciclo 12x36.\n\nDeseja confirmar este plantão extra?` };
+        }
+      }
+      return { ok: true };
+    }
 
     // Busca todos os colaboradores do mesmo turno
     const sameShiftMembers = allProfessionals.filter(p => p.shiftId === shiftId && p.id !== memberId);
@@ -1348,6 +1361,8 @@ function EscalaControl() {
       day: editingCell.day,
       statusLabel,
       statusCode: editingCellStatus,
+      type: validation.type as 'success' | 'warning' | undefined,
+      warningMsg: validation.msg,
       snapshotCell: { ...editingCell },
       snapshotStatus: editingCellStatus,
       snapshotName: editingName,
@@ -3458,15 +3473,21 @@ function EscalaControl() {
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="relative w-full max-w-sm bg-card border border-primary/20 rounded-xl shadow-2xl p-6 z-10 flex flex-col items-center gap-4"
+              className={`relative w-full max-w-sm bg-card border rounded-xl shadow-2xl p-6 z-10 flex flex-col items-center gap-4 ${pendingConfirm.type === 'warning' ? 'border-amber-500/40' : 'border-primary/20'}`}
             >
               {/* Ícone */}
-              <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-primary" />
+              <div className={`mx-auto h-12 w-12 rounded-full flex items-center justify-center ${pendingConfirm.type === 'warning' ? 'bg-amber-500/10' : 'bg-primary/10'}`}>
+                {pendingConfirm.type === 'warning' ? (
+                  <AlertTriangle className="h-6 w-6 text-amber-500" />
+                ) : (
+                  <CalendarCheck className="h-6 w-6 text-primary" />
+                )}
               </div>
 
               <div className="space-y-2 w-full">
-                <h3 className="text-sm font-black text-card-foreground text-center">Confirmar Alteração de Escala</h3>
+                <h3 className={`text-sm font-black text-center ${pendingConfirm.type === 'warning' ? 'text-amber-600' : 'text-card-foreground'}`}>
+                  {pendingConfirm.type === 'warning' ? 'Aviso de Alteração de Escala' : 'Confirmar Alteração de Escala'}
+                </h3>
 
                 {/* Dados do colaborador */}
                 <div 
@@ -3507,12 +3528,18 @@ function EscalaControl() {
                   </div>
                 </div>
 
-                {/* Novo status */}
+                {/* Novo status ou Mensagem de Aviso */}
                 <div className="text-left pt-1">
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Deseja confirmar a alteração para{' '}
-                    <strong className="text-foreground">{pendingConfirm.statusLabel}</strong>?
-                  </p>
+                  {pendingConfirm.type === 'warning' && pendingConfirm.warningMsg ? (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap font-medium">
+                      {pendingConfirm.warningMsg}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Deseja confirmar a alteração para{' '}
+                      <strong className="text-foreground">{pendingConfirm.statusLabel}</strong>?
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -3537,7 +3564,11 @@ function EscalaControl() {
                     });
                     setPendingConfirm(null);
                   }}
-                  className="flex-1 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold text-xs py-2 rounded-lg transition-all shadow-md focus:outline-none"
+                  className={`flex-1 font-semibold text-xs py-2 rounded-lg transition-all shadow-md focus:outline-none ${
+                    pendingConfirm.type === 'warning' 
+                      ? 'bg-amber-500 text-white hover:bg-amber-600' 
+                      : 'bg-primary text-primary-foreground hover:bg-primary/95'
+                  }`}
                 >
                   Confirmar
                 </button>
