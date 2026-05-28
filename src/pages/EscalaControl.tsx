@@ -55,7 +55,8 @@ import {
   ShieldOff,
   Printer,
   Sun,
-  MoonStar
+  MoonStar,
+  Settings2
 } from "lucide-react";
 import { 
   Dialog, 
@@ -629,6 +630,50 @@ function EscalaControl() {
   const [editingRole, setEditingRole] = useState<"nurse" | "technician">("technician");
   const [editingShiftId, setEditingShiftId] = useState("");
   const [editingCellStatus, setEditingCellStatus] = useState<"default" | "duty" | "off-duty" | "leave-approved" | "leave-pending" | "FE" | "FA" | "BH" | "LM">("default");
+  const [activeEditTab, setActiveEditTab] = useState("status");
+
+  // Popup de confirmação de 2ª etapa (antes de salvar na escala)
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    memberName: string;
+    memberRole: string;
+    shiftName: string;
+    day: number;
+    statusLabel: string;
+    statusCode: string;
+    // Snapshot do editingCell para ser usado pelo saveCellEdits após o dialog fechar
+    snapshotCell: {
+      memberId: string;
+      memberName: string;
+      memberRole: "nurse" | "technician";
+      shiftId: string;
+      day: number;
+      initialStatus: string;
+    };
+    snapshotStatus: "default" | "duty" | "off-duty" | "leave-approved" | "leave-pending" | "FE" | "FA" | "BH" | "LM";
+    snapshotName: string;
+    snapshotRole: "nurse" | "technician";
+    snapshotShiftId: string;
+  } | null>(null);
+
+  // Popup vermelho de alerta de violação de regra
+  const [cellAlert, setCellAlert] = useState<{
+    memberName: string;
+    memberRole: string;
+    shiftName: string;
+    msg: string;
+    snapshotCell: {
+      memberId: string;
+      memberName: string;
+      memberRole: "nurse" | "technician";
+      shiftId: string;
+      day: number;
+      initialStatus: string;
+    };
+    snapshotStatus: "default" | "duty" | "off-duty" | "leave-approved" | "leave-pending" | "FE" | "FA" | "BH" | "LM";
+    snapshotName: string;
+    snapshotRole: "nurse" | "technician";
+    snapshotShiftId: string;
+  } | null>(null);
 
   // Manage override password simulation
   const [managerSignature, setManagerSignature] = useState("Renata Pereira (Responsável Técnica)");
@@ -1134,6 +1179,7 @@ function EscalaControl() {
     setEditingName(p.name);
     setEditingRole(p.role);
     setEditingShiftId(p.shiftId);
+    setActiveEditTab("status");
 
     // Load current status value
     const matchedOverride = dayOverrides.find(o => o.memberId === p.id && o.day === dayNum);
@@ -1166,22 +1212,185 @@ function EscalaControl() {
     }
   };
 
-  // Persist custom cell overrides and general profile changes
-  const saveCellEdits = () => {
+  // ─── VALIDAÇÃO DE REGRAS DE NEGÓCIO DA ESCALA ────────────────────────────
+  // Retorna { ok: true } se a mudança é permitida, ou { ok: false, msg } com a violação.
+  const validateCellChange = (memberId: string, memberName: string, memberRole: string, shiftId: string, day: number, newStatus: string) => {
+    // Status de ausência que contam para os limites de folga por dia
+    const ABSENCE_STATUSES = ['F', 'FE', 'FA', 'AU', 'AT', 'LM', 'BH', 'V', 'LTS', 'LS', 'FI', 'leave-approved', 'leave-pending', 'off-duty'];
+    const TEC_ROLES = ['technician'];
+    const ENF_ROLES = ['nurse'];
+
+    // Só valida se o novo status é um tipo de ausência/folga
+    if (!ABSENCE_STATUSES.includes(newStatus)) return { ok: true };
+
+    // Busca todos os colaboradores do mesmo turno
+    const sameShiftMembers = allProfessionals.filter(p => p.shiftId === shiftId && p.id !== memberId);
+
+    // ── REGRA 1: Limite diário de folgas de Técnicos/Auxiliares ──
+    if (TEC_ROLES.includes(memberRole)) {
+      const maxTec = limits?.technicians || 3;
+      let tecAbsences = 0;
+      sameShiftMembers.forEach(p => {
+        if (TEC_ROLES.includes(p.role)) {
+          const dayStatus = getDayStatus(p, day);
+          if (ABSENCE_STATUSES.includes(dayStatus)) tecAbsences++;
+        }
+      });
+      if (tecAbsences >= maxTec) {
+        return { ok: false, msg: `⚠️ Dia ${day}: limite de ${maxTec} folgas de Téc./Aux. já atingido neste plantão (${shiftId.replace('_', ' ').toUpperCase()}).\nTente outro dia disponível.` };
+      }
+    }
+
+    // ── REGRA 2: Limite diário de folgas de Enfermeiros(as) ──
+    if (ENF_ROLES.includes(memberRole)) {
+      const maxEnf = limits?.nurses || 1;
+      let enfAbsences = 0;
+      sameShiftMembers.forEach(p => {
+        if (ENF_ROLES.includes(p.role)) {
+          const dayStatus = getDayStatus(p, day);
+          if (ABSENCE_STATUSES.includes(dayStatus)) enfAbsences++;
+        }
+      });
+      if (enfAbsences >= maxEnf) {
+        return { ok: false, msg: `⚠️ Dia ${day}: já existe o limite de ${maxEnf} folga(s) de Enfermeiro(a) neste plantão.\nEscolha outro dia para lançar a folga.` };
+      }
+    }
+
+    // ── REGRA 3: FE/FA só pode substituir Plantão (P) ──
+    if (newStatus === 'FE' || newStatus === 'FA') {
+      const currentSelf = allProfessionals.find(p => p.id === memberId);
+      const currentDayStatus = getDayStatus(currentSelf, day);
+      if (currentDayStatus !== 'duty') {
+        return { ok: false, msg: `⚠️ ${newStatus === 'FE' ? 'Folga Eleitoral (FE)' : 'Folga Aniversário (FA)'} só pode substituir um dia de Plantão (P).\nO dia ${day} não é Plantão para ${memberName}.` };
+      }
+    }
+
+    // ── REGRA 4: BH/LM só pode ser lançado em dia de Plantão (P) ──
+    if (newStatus === 'BH' || newStatus === 'LM') {
+      const currentSelf = allProfessionals.find(p => p.id === memberId);
+      const currentDayStatus = getDayStatus(currentSelf, day);
+      if (currentDayStatus !== 'duty') {
+        const label = newStatus === 'BH' ? 'Banco de Horas (BH)' : 'Licença Médica (LM)';
+        return { ok: false, msg: `⚠️ ${label} só pode ser lançado em dia de Plantão (P).\nO dia ${day} não é Plantão para ${memberName}.` };
+      }
+    }
+
+    // ── REGRA 5: Máximo de 2 folgas extras (FE/FA) por colaborador no mês ──
+    if (newStatus === 'FE' || newStatus === 'FA') {
+      const selfEntry = allProfessionals.find(p => p.id === memberId);
+      let extraCount = 0;
+      if (selfEntry?.days) {
+        Object.values(selfEntry.days).forEach(v => {
+          if (v === 'FE' || v === 'FA') extraCount++;
+        });
+      }
+      // Também conta overrides pendentes
+      dayOverrides.forEach(o => {
+        if (o.memberId === memberId && (o.status === 'FE' || o.status === 'FA') && o.day !== day) extraCount++;
+      });
+      if (extraCount >= 2) {
+        return { ok: false, msg: `⚠️ Limite de 2 folgas extras (FE/FA) por mês já atingido para ${memberName}.\nNão é possível adicionar mais folgas especiais este mês.` };
+      }
+    }
+
+    return { ok: true };
+  };
+
+  // Abre o popup de confirmação de 2ª etapa antes de salvar
+  const requestSaveCellEdits = () => {
     if (!editingCell) return;
-    const { memberId, day, memberName } = editingCell;
+    const shiftName = shifts.find(s => s.id === editingShiftId)?.name || editingShiftId;
+    const STATUS_LABELS: Record<string, string> = {
+      default: 'Seguir Escala Padrão 12x36',
+      duty: 'Forçar Plantão (P)',
+      'off-duty': 'Forçar Folga de Revezamento (F)',
+      'leave-approved': 'Folga de Direito Deferida (F)',
+      'leave-pending': 'Folga Sob Análise (?)',
+      FE: 'Folga Eleitoral (FE)',
+      FA: 'Folga Aniversário (FA)',
+      BH: 'Compensação Banco de Horas (BH)',
+      LM: 'Licença Médica / Atestado (LM)',
+    };
+    const statusLabel = STATUS_LABELS[editingCellStatus] || editingCellStatus;
+    // ── Validação de regras ANTES de confirmar ──
+    const memberRoleForValidation = editingCell.memberRole; // 'nurse' | 'technician'
+    const validation = validateCellChange(
+      editingCell.memberId,
+      editingCell.memberName,
+      memberRoleForValidation,
+      editingShiftId,
+      editingCell.day,
+      editingCellStatus
+    );
+
+    if (!validation.ok) {
+      // Fecha o editor e abre o popup vermelho de violação
+      setEditingCell(null);
+      setCellAlert({
+        memberName: editingCell.memberName,
+        memberRole: memberRoleForValidation === 'nurse' ? 'Enfermeiro(a)' : 'Téc. Enfermagem',
+        shiftName,
+        msg: validation.msg,
+        snapshotCell: { ...editingCell },
+        snapshotStatus: editingCellStatus,
+        snapshotName: editingName,
+        snapshotRole: editingRole,
+        snapshotShiftId: editingShiftId,
+      });
+      return;
+    }
+
+    // Guarda snapshot completo antes de fechar o dialog
+    const snap = {
+      memberName: editingCell.memberName,
+      memberRole: editingCell.memberRole === 'nurse' ? 'Enfermeiro(a)' : 'Téc. Enfermagem',
+      shiftName,
+      day: editingCell.day,
+      statusLabel,
+      statusCode: editingCellStatus,
+      snapshotCell: { ...editingCell },
+      snapshotStatus: editingCellStatus,
+      snapshotName: editingName,
+      snapshotRole: editingRole,
+      snapshotShiftId: editingShiftId,
+    };
+    // Fecha o dialog de edição e abre o popup de confirmação
+    setEditingCell(null);
+    setPendingConfirm(snap);
+  };
+
+  // Persist custom cell overrides and general profile changes
+  // Pode receber override de dados para uso após o popup de confirmação
+  const saveCellEdits = (overrideData?: {
+    cell: typeof editingCell;
+    status: typeof editingCellStatus;
+    name: string;
+    role: typeof editingRole;
+    shiftId: string;
+  }) => {
+    const cell = overrideData?.cell ?? editingCell;
+    const status = overrideData?.status ?? editingCellStatus;
+    const name = overrideData?.name ?? editingName;
+    const role = overrideData?.role ?? editingRole;
+    const shiftId = overrideData?.shiftId ?? editingShiftId;
+
+    if (!cell) return;
+    // Aliases para manter o restante do código igual
+    const memberId = cell.memberId;
+    const day = cell.day;
+    const memberName = cell.memberName;
 
     // 1. Update the database ScheduleEntry and invalidate cache
     db.entities.ScheduleEntry.filter({ month: 6, year: 2026 }).then(schedules => {
       const sched = schedules.find(s => s.employee_name?.trim() === memberName?.trim());
       if (sched) {
         let newStatus = 'F';
-        if (editingCellStatus === 'duty') newStatus = 'P';
-        else if (editingCellStatus === 'leave-approved' || editingCellStatus === 'leave-toggled') newStatus = 'F';
-        else if (editingCellStatus === 'FE') newStatus = 'FE';
-        else if (editingCellStatus === 'FA') newStatus = 'FA';
-        else if (editingCellStatus === 'BH') newStatus = 'BH';
-        else if (editingCellStatus === 'LM') newStatus = 'LM';
+        if (status === 'duty') newStatus = 'P';
+        else if (status === 'leave-approved' || status === 'leave-toggled') newStatus = 'F';
+        else if (status === 'FE') newStatus = 'FE';
+        else if (status === 'FA') newStatus = 'FA';
+        else if (status === 'BH') newStatus = 'BH';
+        else if (status === 'LM') newStatus = 'LM';
         
         const updatedDays = { ...sched.days, [String(day)]: newStatus };
         db.entities.ScheduleEntry.update(sched.id, { days: updatedDays }).then(() => {
@@ -1194,15 +1403,15 @@ function EscalaControl() {
     // 2. Update the database Employee and invalidate cache
     db.entities.Employee.get(memberId).then(emp => {
       if (emp) {
-        const dbShiftType = editingShiftId === 'impar_diurno' ? 'diurno_a' :
-                            editingShiftId === 'par_diurno' ? 'diurno_b' :
-                            editingShiftId === 'impar_noturno' ? 'noturno_a' :
-                            editingShiftId === 'par_noturno' ? 'noturno_b' : emp.shift_type;
+        const dbShiftType = shiftId === 'impar_diurno' ? 'diurno_a' :
+                            shiftId === 'par_diurno' ? 'diurno_b' :
+                            shiftId === 'impar_noturno' ? 'noturno_a' :
+                            shiftId === 'par_noturno' ? 'noturno_b' : emp.shift_type;
         
-        const updatedRole = editingRole === 'nurse' ? 'ENFERMEIRA' : 'TEC.ENF';
+        const updatedRole = role === 'nurse' ? 'ENFERMEIRA' : 'TEC.ENF';
 
         db.entities.Employee.update(memberId, {
-          name: editingName.trim() || emp.name,
+          name: name.trim() || emp.name,
           role: updatedRole,
           shift_type: dbShiftType
         }).then(() => {
@@ -1223,12 +1432,12 @@ function EscalaControl() {
           if (found) {
             targetMember = { 
               ...found, 
-              name: editingName.trim() || found.name,
-              role: editingRole
+              name: name.trim() || found.name,
+              role: role
             };
           }
           // Remove from old if shift changed
-          if (s.id !== editingShiftId) {
+          if (s.id !== shiftId) {
             return {
               ...s,
               staff: s.staff.filter(m => m.id !== memberId)
@@ -1239,8 +1448,8 @@ function EscalaControl() {
               ...s,
               staff: s.staff.map(m => m.id === memberId ? { 
                 ...m, 
-                name: editingName.trim() || m.name, 
-                role: editingRole 
+                name: name.trim() || m.name, 
+                role: role 
               } : m)
             };
           }
@@ -1249,9 +1458,9 @@ function EscalaControl() {
       });
 
       // Insert member into new shift category if group changed
-      if (targetMember && !filteredShifts.find(s => s.id === editingShiftId)?.staff.some(m => m.id === memberId)) {
+      if (targetMember && !filteredShifts.find(s => s.id === shiftId)?.staff.some(m => m.id === memberId)) {
         return filteredShifts.map(s => {
-          if (s.id === editingShiftId) {
+          if (s.id === shiftId) {
             return {
               ...s,
               staff: [...s.staff, targetMember!]
@@ -1269,14 +1478,14 @@ function EscalaControl() {
     setDayOverrides(prev => prev.filter(o => !(o.memberId === memberId && o.day === day)));
 
     // 5. Define the new interactive status
-    if (editingCellStatus === "leave-approved") {
+    if (status === "leave-approved") {
       const newReq: LeaveRequest = {
         id: "req-cell-" + Date.now(),
         memberId,
-        memberName: editingName,
-        memberRole: editingRole,
-        shiftId: editingShiftId,
-        shiftName: shifts.find(s => s.id === editingShiftId)?.name || "",
+        memberName: name,
+        memberRole: role,
+        shiftId: shiftId,
+        shiftName: shifts.find(s => s.id === shiftId)?.name || "",
         requestedDay: day,
         justification: "Folga programada e deferida via painel multifuncional de células.",
         status: "approved",
@@ -1287,14 +1496,14 @@ function EscalaControl() {
         reviewedAt: new Date().toISOString()
       };
       setRequests(prev => [newReq, ...prev]);
-    } else if (editingCellStatus === "leave-pending") {
+    } else if (status === "leave-pending") {
       const newReq: LeaveRequest = {
         id: "req-cell-" + Date.now(),
         memberId,
-        memberName: editingName,
-        memberRole: editingRole,
-        shiftId: editingShiftId,
-        shiftName: shifts.find(s => s.id === editingShiftId)?.name || "",
+        memberName: name,
+        memberRole: role,
+        shiftId: shiftId,
+        shiftName: shifts.find(s => s.id === shiftId)?.name || "",
         requestedDay: day,
         justification: "Folga sob análise iniciada via Grade de Planejamento de Células.",
         status: "pending",
@@ -1303,17 +1512,17 @@ function EscalaControl() {
         leadApproval: "pending"
       };
       setRequests(prev => [newReq, ...prev]);
-    } else if (editingCellStatus === "duty") {
+    } else if (status === "duty") {
       setDayOverrides(prev => [...prev, { memberId, day, status: "duty" }]);
-    } else if (editingCellStatus === "off-duty") {
+    } else if (status === "off-duty") {
       setDayOverrides(prev => [...prev, { memberId, day, status: "off-duty" }]);
-    } else if (editingCellStatus === "FE") {
+    } else if (status === "FE") {
       setDayOverrides(prev => [...prev, { memberId, day, status: "FE" }]);
-    } else if (editingCellStatus === "FA") {
+    } else if (status === "FA") {
       setDayOverrides(prev => [...prev, { memberId, day, status: "FA" }]);
-    } else if (editingCellStatus === "BH") {
+    } else if (status === "BH") {
       setDayOverrides(prev => [...prev, { memberId, day, status: "BH" }]);
-    } else if (editingCellStatus === "LM") {
+    } else if (status === "LM") {
       setDayOverrides(prev => [...prev, { memberId, day, status: "LM" }]);
     }
 
@@ -2964,7 +3173,7 @@ function EscalaControl() {
               </div>
 
               {/* Tabs wrapper */}
-              <Tabs defaultValue="status" className="w-full">
+              <Tabs value={activeEditTab} onValueChange={setActiveEditTab} className="w-full">
                 <TabsList className="grid grid-cols-2 w-full h-11 bg-slate-100 dark:bg-slate-900 rounded-lg p-1">
                   <TabsTrigger value="status" className="text-xs font-bold uppercase py-1.5 cursor-pointer">
                     🗓️ Status / Direitos
@@ -3225,7 +3434,7 @@ function EscalaControl() {
             </Button>
             <Button 
               type="button" 
-              onClick={saveCellEdits}
+              onClick={requestSaveCellEdits}
               className="bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg h-9 text-xs font-black uppercase tracking-wider"
             >
               Confirmar Alterações
@@ -3233,6 +3442,194 @@ function EscalaControl() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* POPUP DE CONFIRMAÇÃO DE 2ª ETAPA — Confirmar antes de salvar na escala */}
+      <AnimatePresence>
+        {pendingConfirm && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPendingConfirm(null)}
+              className="absolute inset-0 bg-black/50"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              className="relative w-full max-w-sm bg-card border border-primary/20 rounded-xl shadow-2xl p-6 z-10 flex flex-col items-center gap-4"
+            >
+              {/* Ícone */}
+              <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <CalendarCheck className="h-6 w-6 text-primary" />
+              </div>
+
+              <div className="space-y-2 w-full">
+                <h3 className="text-sm font-black text-card-foreground text-center">Confirmar Alteração de Escala</h3>
+
+                {/* Dados do colaborador */}
+                <div 
+                  className="bg-muted px-3 py-2 rounded-lg text-left border border-border space-y-1.5 w-full cursor-pointer hover:border-primary/40 hover:bg-muted/80 transition-all group/container relative"
+                  onClick={() => {
+                    setEditingCell(pendingConfirm.snapshotCell);
+                    setEditingCellStatus(pendingConfirm.snapshotStatus);
+                    setEditingName(pendingConfirm.snapshotName);
+                    setEditingRole(pendingConfirm.snapshotRole);
+                    setEditingShiftId(pendingConfirm.snapshotShiftId);
+                    setActiveEditTab("profile");
+                    setPendingConfirm(null);
+                  }}
+                  title="Clique para voltar e editar a ficha"
+                >
+                  <div className="absolute top-1 right-2 opacity-0 group-hover/container:opacity-100 transition-opacity">
+                    <span className="text-[9px] font-bold text-primary flex items-center gap-1">
+                      <Settings2 className="w-3 h-3" /> Editar Ficha
+                    </span>
+                  </div>
+                  <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all w-fit pr-6">
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold transition-colors group-hover:text-primary">Colaborador(a)</span>
+                    <span className="text-[11px] font-bold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.memberName}</span>
+                  </div>
+                  <div className="flex items-center gap-6 border-t border-border/60 pt-1.5 text-[10px]">
+                    <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Cargo</span>
+                      <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.memberRole}</span>
+                    </div>
+                    <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Turno</span>
+                      <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.shiftName}</span>
+                    </div>
+                    <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Dia</span>
+                      <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:scale-[1.05] origin-left">{pendingConfirm.day}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Novo status */}
+                <div className="text-left pt-1">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Deseja confirmar a alteração para{' '}
+                    <strong className="text-foreground">{pendingConfirm.statusLabel}</strong>?
+                  </p>
+                </div>
+              </div>
+
+              {/* Botões */}
+              <div className="w-full flex gap-3 pt-1">
+                <button
+                  onClick={() => setPendingConfirm(null)}
+                  className="flex-1 bg-muted hover:bg-muted/80 text-muted-foreground font-semibold text-xs py-2 rounded-lg transition-all border border-border focus:outline-none"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    if (!pendingConfirm) return;
+                    // Chama saveCellEdits passando os dados do snapshot diretamente
+                    saveCellEdits({
+                      cell: pendingConfirm.snapshotCell,
+                      status: pendingConfirm.snapshotStatus,
+                      name: pendingConfirm.snapshotName,
+                      role: pendingConfirm.snapshotRole,
+                      shiftId: pendingConfirm.snapshotShiftId,
+                    });
+                    setPendingConfirm(null);
+                  }}
+                  className="flex-1 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold text-xs py-2 rounded-lg transition-all shadow-md focus:outline-none"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP VERMELHO DE ALERTA DE VIOLAÇÃO DE REGRA */}
+      <AnimatePresence>
+        {cellAlert && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCellAlert(null)}
+              className="absolute inset-0 bg-black/50"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              className="relative w-full max-w-sm bg-card border border-destructive/20 rounded-xl shadow-2xl p-6 z-10 flex flex-col items-center gap-4"
+            >
+              {/* Ícone */}
+              <div className="mx-auto h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+
+              <div className="space-y-2 w-full">
+                <h3 className="text-sm font-black text-destructive text-center uppercase tracking-tight">
+                  Ação Não Permitida
+                </h3>
+
+                {/* Dados do colaborador */}
+                <div 
+                  className="bg-destructive/5 hover:bg-destructive/10 px-3 py-2 rounded-lg text-left border border-destructive/20 hover:border-destructive/40 transition-all duration-300 space-y-1.5 w-full cursor-pointer group/container relative"
+                  onClick={() => {
+                    setEditingCell(cellAlert.snapshotCell);
+                    setEditingCellStatus(cellAlert.snapshotStatus);
+                    setEditingName(cellAlert.snapshotName);
+                    setEditingRole(cellAlert.snapshotRole);
+                    setEditingShiftId(cellAlert.snapshotShiftId);
+                    setActiveEditTab("profile");
+                    setCellAlert(null);
+                  }}
+                  title="Clique para voltar e alterar os dados"
+                >
+                  <div className="absolute top-1 right-2 opacity-0 group-hover/container:opacity-100 transition-opacity">
+                    <span className="text-[9px] font-bold text-destructive flex items-center gap-1">
+                      <Settings2 className="w-3 h-3" /> Editar Ficha
+                    </span>
+                  </div>
+                  <div className="group p-1 -mx-1 rounded-md hover:bg-destructive/10 transition-all duration-300 w-fit pr-6">
+                    <span className="text-[9px] uppercase tracking-wider text-destructive/80 block font-bold transition-colors group-hover:text-destructive">Colaborador(a)</span>
+                    <span className="text-[11px] font-bold text-destructive inline-block transform transition-transform duration-300 group-hover:translate-x-1">{cellAlert.memberName}</span>
+                  </div>
+                  <div className="flex items-center gap-6 border-t border-destructive/10 pt-1.5 text-[10px]">
+                    <div className="group p-1 -mx-1 rounded-md hover:bg-destructive/10 transition-all duration-300">
+                      <span className="text-[8px] uppercase tracking-wider text-destructive/80 block font-medium transition-colors group-hover:text-destructive">Cargo</span>
+                      <span className="font-semibold text-destructive inline-block transform transition-transform duration-300 group-hover:translate-x-1">{cellAlert.memberRole}</span>
+                    </div>
+                    <div className="group p-1 -mx-1 rounded-md hover:bg-destructive/10 transition-all duration-300">
+                      <span className="text-[8px] uppercase tracking-wider text-destructive/80 block font-medium transition-colors group-hover:text-destructive">Turno</span>
+                      <span className="font-semibold text-destructive inline-block transform transition-transform duration-300 group-hover:translate-x-1">{cellAlert.shiftName}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mensagem de erro */}
+                <div className="text-left pt-2">
+                  <p className="text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed font-medium">
+                    {cellAlert.msg}
+                  </p>
+                </div>
+              </div>
+
+              {/* Botão */}
+              <div className="w-full flex pt-2">
+                <button
+                  onClick={() => setCellAlert(null)}
+                  className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold text-xs py-2.5 rounded-lg transition-all shadow-md focus:outline-none uppercase tracking-wider"
+                >
+                  Entendi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* TAB CONTENT: OVERVIEW BLOCK */}
       {activeTab === "overview" && (
