@@ -103,7 +103,7 @@ export default function Dashboard() {
 
   const tecTotal = roleBreakdown['TEC.ENF'] + roleBreakdown['AUX.ENF'];
   const enfTotal = roleBreakdown['ENFERMEIRA'] + roleBreakdown['ENFERMEIRO'];
-  const rtTotal = roleBreakdown['RES.TECNICA'] + roleBreakdown['SUPERVISÃO'];
+  const rtTotal = roleBreakdown['RES.TECNICA'] + roleBreakdown['LIDERANÇA'];
 
   // Present today shift breakdown
   const shiftBreakdown = {
@@ -330,7 +330,7 @@ export default function Dashboard() {
                   <>
                     <div className="grid grid-cols-3 gap-4">
                       <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-center">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">RT & Supervisão</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">RT & Liderança</span>
                         <p className="text-xl font-bold text-primary mt-1">{rtTotal}</p>
                       </div>
                       <div className="bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/50 dark:border-teal-800/40 rounded-lg p-3 text-center">
@@ -355,7 +355,7 @@ export default function Dashboard() {
                                 {emp.sector || 'Sem setor'} · Coren: {emp.coren}
                               </span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${emp.role === 'RES.TECNICA' || emp.role === 'SUPERVISÃO' ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300' :
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${emp.role === 'RES.TECNICA' || emp.role === 'LIDERANÇA' ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300' :
                                 emp.role === 'ENFERMEIRA' || emp.role === 'ENFERMEIRO' ? 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/40 dark:text-teal-300' :
                                   'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300'
                               }`}>

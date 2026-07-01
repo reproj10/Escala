@@ -42,15 +42,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         </div>
         <AnimatePresence>
           {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 'auto' }}
-              exit={{ opacity: 0, width: 0 }}
-              className="overflow-hidden whitespace-nowrap"
+            <div
+              className="flex-1 min-w-[150px]"
             >
-              <h1 className="text-sm font-bold text-sidebar-foreground">UPA Zilda Arns</h1>
-              <p className="text-[10px] text-sidebar-foreground/50">Escala de Enfermagem</p>
-            </motion.div>
+              <h1 className="text-sm font-bold text-sidebar-foreground whitespace-nowrap">UPA Zilda Arns</h1>
+              <p className="text-[10px] text-sidebar-foreground/50 whitespace-nowrap">Escala de Enfermagem</p>
+            </div>
           )}
         </AnimatePresence>
       </div>

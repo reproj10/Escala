@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo, Component, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import db from "@/api/dbClient";
 import * as XLSX from "xlsx";
@@ -306,14 +307,14 @@ function EscalaControl() {
           
           let shiftEmployees = [];
           if (dbShiftType === 'rt_lideranca') {
-            shiftEmployees = employees.filter(e => e.role === 'RES.TECNICA' || e.role === 'SUPERVISÃO' || e.name.toLowerCase().includes('maria eduarda'));
+            shiftEmployees = employees.filter(e => e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || e.name.toLowerCase().includes('maria eduarda'));
           } else {
-            shiftEmployees = employees.filter(e => e.shift_type === dbShiftType && e.role !== 'RES.TECNICA' && e.role !== 'SUPERVISÃO' && !e.name.toLowerCase().includes('maria eduarda'));
+            shiftEmployees = employees.filter(e => e.shift_type === dbShiftType && e.role !== 'RES.TECNICA' && e.role !== 'LIDERANÇA' && !e.name.toLowerCase().includes('maria eduarda'));
           }
           
           const staff = shiftEmployees.map(emp => {
             const sched = schedules.find(sch => sch.employee_name?.trim() === emp.name?.trim());
-            const isNurse = emp.role === 'ENFERMEIRA' || emp.role === 'ENFERMEIRO' || emp.role === 'RES.TECNICA' || emp.role === 'SUPERVISÃO';
+            const isNurse = emp.role === 'ENFERMEIRA' || emp.role === 'ENFERMEIRO' || emp.role === 'RES.TECNICA' || emp.role === 'LIDERANÇA';
             
             return {
               id: emp.id,
@@ -388,6 +389,9 @@ function EscalaControl() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  // Estado real de desbloqueio — controla se o calendário permite edições
+  const [isMonthUnlocked, setIsMonthUnlocked] = useState(false);
+  const [isLockConfirmOpen, setIsLockConfirmOpen] = useState(false);
 
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,11 +403,34 @@ function EscalaControl() {
     const pass = password.trim();
     
     if (userLower === 'admin' && (pass === 'upa123' || pass === 'admin')) {
-      toast.success("Escala destravada com sucesso!");
+      toast.success("✅ Mês destravado! Agora você pode selecionar dias de folga.");
+      setIsMonthUnlocked(true);
       setIsAuthModalOpen(false);
+      setUsername('');
+      setPassword('');
+      setAuthError('');
     } else {
       setAuthError('Usuário ou senha incorretos!');
     }
+  };
+
+  // Ao trocar de mês, trava novamente exigindo nova autenticação
+  const handleMonthChange = (newMonth: number, newYear: number) => {
+    setSelectedMonth(newMonth);
+    setSelectedYear(newYear);
+    setIsMonthUnlocked(false);
+    setCollabRequestDay(1);
+    toast.info(`Mês alterado para ${getMonthName(newMonth)} de ${newYear}. Desbloqueie para editar.`);
+  };
+
+  const goToPrevMonth = () => {
+    if (selectedMonth === 1) handleMonthChange(12, selectedYear - 1);
+    else handleMonthChange(selectedMonth - 1, selectedYear);
+  };
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 12) handleMonthChange(1, selectedYear + 1);
+    else handleMonthChange(selectedMonth + 1, selectedYear);
   };
 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -631,7 +658,7 @@ function EscalaControl() {
   } | null>(null);
 
   const [editingName, setEditingName] = useState("");
-  const [editingRole, setEditingRole] = useState<"nurse" | "technician">("technician");
+  const [editingRole, setEditingRole] = useState<string>("technician");
   const [editingShiftId, setEditingShiftId] = useState("");
   const [editingCellStatus, setEditingCellStatus] = useState<"default" | "duty" | "off-duty" | "leave-approved" | "leave-pending" | "FE" | "FA" | "BH" | "LM">("default");
   const [activeEditTab, setActiveEditTab] = useState("status");
@@ -808,7 +835,7 @@ function EscalaControl() {
 
     const getRoleOrder = (role) => {
       const r = String(role || '').toUpperCase().trim();
-      if (r === 'RES.TECNICA' || r === 'SUPERVISÃO') return 0;
+      if (r === 'RES.TECNICA' || r === 'LIDERANÇA' || r === 'SUPERVISÃO') return 0;
       if (r === 'ENFERMEIRA' || r === 'ENFERMEIRO' || r === 'NURSE') return 1;
       return 2;
     };
@@ -826,9 +853,14 @@ function EscalaControl() {
     } else {
       // Default: Role order first, then alphabetical name
       list = [...list].sort((a, b) => {
-        const orderA = getRoleOrder(a.roleCategory || (a.id === "staff-renata" ? "RES.TECNICA" : a.id === "staff-maria" ? "SUPERVISÃO" : ""));
-        const orderB = getRoleOrder(b.roleCategory || (b.id === "staff-renata" ? "RES.TECNICA" : b.id === "staff-maria" ? "SUPERVISÃO" : ""));
+        const orderA = getRoleOrder(a.roleCategory || (a.id === "staff-renata" ? "RES.TECNICA" : a.id === "staff-maria" ? "LIDERANÇA" : ""));
+        const orderB = getRoleOrder(b.roleCategory || (b.id === "staff-renata" ? "RES.TECNICA" : b.id === "staff-maria" ? "LIDERANÇA" : ""));
         if (orderA !== orderB) return orderA - orderB;
+        // Tie-breaker: Renata is always first, then Maria, then alphabetical
+        if (a.id === "staff-renata" || a.name.includes("Renata Ap. Bueno Pereira")) return -1;
+        if (b.id === "staff-renata" || b.name.includes("Renata Ap. Bueno Pereira")) return 1;
+        if (a.id === "staff-maria" || a.name.includes("Maria Eduarda")) return -1;
+        if (b.id === "staff-maria" || b.name.includes("Maria Eduarda")) return 1;
         return a.name.localeCompare(b.name, "pt-BR");
       });
     }
@@ -1182,7 +1214,7 @@ function EscalaControl() {
   };
 
   // Handle cell selection and buffering in Global Scale View
-  const handleCellClick = (p: { id: string; name: string; role: "nurse" | "technician"; shiftId: string }, dayNum: number, currentStatus: string) => {
+  const handleCellClick = (p: { id: string; name: string; role: "nurse" | "technician"; shiftId: string; roleCategory?: string }, dayNum: number, currentStatus: string) => {
     setEditingCell({
       memberId: p.id,
       memberName: p.name,
@@ -1193,7 +1225,7 @@ function EscalaControl() {
     });
 
     setEditingName(p.name);
-    setEditingRole(p.role);
+    setEditingRole(p.roleCategory || (p.role === "nurse" ? "ENFERMEIRA" : "TEC.ENF"));
     setEditingShiftId(p.shiftId);
     setActiveEditTab("status");
 
@@ -1380,7 +1412,7 @@ function EscalaControl() {
       snapshotCell: { ...editingCell },
       snapshotStatus: editingCellStatus,
       snapshotName: editingName,
-      snapshotRole: editingRole,
+      snapshotRole: editingRole as any,
       snapshotShiftId: editingShiftId,
     };
     // Fecha o dialog de edição e abre o popup de confirmação
@@ -1437,7 +1469,7 @@ function EscalaControl() {
                             shiftId === 'impar_noturno' ? 'noturno_a' :
                             shiftId === 'par_noturno' ? 'noturno_b' : emp.shift_type;
         
-        const updatedRole = role === 'nurse' ? 'ENFERMEIRA' : 'TEC.ENF';
+        const updatedRole = role === 'nurse' ? 'ENFERMEIRA' : (role === 'technician' ? 'TEC.ENF' : role);
 
         db.entities.Employee.update(memberId, {
           name: name.trim() || emp.name,
@@ -1612,7 +1644,7 @@ function EscalaControl() {
         staff: s.staff.map(m => m.id === id ? { ...m, role: currentRole === "nurse" ? "technician" : "nurse" } : m)
       };
     }));
-    toast.success(currentRole === "nurse" ? `Função alterada para Técnico de Enfermagem.` : `Função alterada para Enfermeiro Supervisor.`);
+    toast.success(currentRole === "nurse" ? `Função alterada para Técnico de Enfermagem.` : `Função alterada para Enfermeiro Liderança.`);
   };
 
   // Transfer shift function
@@ -1701,17 +1733,17 @@ function EscalaControl() {
         const leadApproval = r.leadApproval || "pending";
         
         let newStatus: "pending" | "approved" | "rejected" = "pending";
-        if (rtApproval === "rejected" || leadApproval === "rejected") {
-          newStatus = "rejected";
-        } else if (rtApproval === "approved" && leadApproval === "approved") {
+        if (rtApproval === "approved" || leadApproval === "approved") {
           newStatus = "approved";
+        } else if (rtApproval === "rejected" || leadApproval === "rejected") {
+          newStatus = "rejected";
         }
         
         return {
           ...r,
           rtApproval,
           status: newStatus,
-          reviewedBy: newStatus !== "pending" ? `RT Renata & Liderança Maria Eduarda` : undefined,
+          reviewedBy: newStatus !== "pending" ? (newStatus === "approved" ? "RT Renata" : "RT Renata") : undefined,
           reviewedAt: newStatus !== "pending" ? new Date().toISOString() : undefined
         };
       });
@@ -1727,8 +1759,8 @@ function EscalaControl() {
               staff: s.staff.map(m => m.id === finalReq.memberId ? { ...m, status: "leave" } : m)
             };
           }));
-          toast.success("FOLGA DEFERIDA CONJUNTAMENTE!", {
-            description: `Tanto Renata (RT) quanto Maria Eduarda (Liderança) concederam a folga para ${finalReq.memberName} no dia ${finalReq.requestedDay}.`
+          toast.success("FOLGA DEFERIDA!", {
+            description: `A folga foi concedida por Renata (RT) para ${finalReq.memberName} no dia ${finalReq.requestedDay}.`
           });
         } else if (finalReq.status === "rejected") {
           setShifts(prevShifts => prevShifts.map(s => {
@@ -1739,10 +1771,8 @@ function EscalaControl() {
             };
           }));
           toast.error("SOLICITAÇÃO INDEFERIDA!", {
-            description: `Houve recusa por parte de uma das decisoras (Renata ou Maria Eduarda) para ${finalReq.memberName} no dia ${finalReq.requestedDay}.`
+            description: `A folga de ${finalReq.memberName} no dia ${finalReq.requestedDay} foi recusada por Renata (RT).`
           });
-        } else {
-          toast.info(`Renata (RT) registrou parecer: ${decision === "approved" ? "FAVORÁVEL" : "DESFAVORÁVEL"}. Aguardando decisão de Maria Eduarda.`);
         }
       }
       return updated;
@@ -1758,17 +1788,17 @@ function EscalaControl() {
         const leadApproval = decision;
         
         let newStatus: "pending" | "approved" | "rejected" = "pending";
-        if (rtApproval === "rejected" || leadApproval === "rejected") {
-          newStatus = "rejected";
-        } else if (rtApproval === "approved" && leadApproval === "approved") {
+        if (rtApproval === "approved" || leadApproval === "approved") {
           newStatus = "approved";
+        } else if (rtApproval === "rejected" || leadApproval === "rejected") {
+          newStatus = "rejected";
         }
         
         return {
           ...r,
           leadApproval,
           status: newStatus,
-          reviewedBy: newStatus !== "pending" ? `RT Renata & Liderança Maria Eduarda` : undefined,
+          reviewedBy: newStatus !== "pending" ? (newStatus === "approved" ? "Liderança Maria Eduarda" : "Liderança Maria Eduarda") : undefined,
           reviewedAt: newStatus !== "pending" ? new Date().toISOString() : undefined
         };
       });
@@ -1784,8 +1814,8 @@ function EscalaControl() {
               staff: s.staff.map(m => m.id === finalReq.memberId ? { ...m, status: "leave" } : m)
             };
           }));
-          toast.success("FOLGA DEFERIDA CONJUNTAMENTE!", {
-            description: `Tanto Renata (RT) quanto Maria Eduarda (Liderança) concederam a folga para ${finalReq.memberName} no dia ${finalReq.requestedDay}.`
+          toast.success("FOLGA DEFERIDA!", {
+            description: `A folga foi concedida por Maria Eduarda (Liderança) para ${finalReq.memberName} no dia ${finalReq.requestedDay}.`
           });
         } else if (finalReq.status === "rejected") {
           setShifts(prevShifts => prevShifts.map(s => {
@@ -1796,10 +1826,8 @@ function EscalaControl() {
             };
           }));
           toast.error("SOLICITAÇÃO INDEFERIDA!", {
-            description: `Houve recusa por parte de uma das decisoras (Renata ou Maria Eduarda) para ${finalReq.memberName} no dia ${finalReq.requestedDay}.`
+            description: `A folga de ${finalReq.memberName} no dia ${finalReq.requestedDay} foi recusada por Maria Eduarda (Liderança).`
           });
-        } else {
-          toast.info(`Maria Eduarda (Liderança) registrou parecer: ${decision === "approved" ? "FAVORÁVEL" : "DESFAVORÁVEL"}. Aguardando decisão de Renata.`);
         }
       }
       return updated;
@@ -1988,10 +2016,11 @@ function EscalaControl() {
       </div>
 
       {/* GLOBAL SCALE DETAILED MONTHLY PANEL - ENTIRE MONTH OF MAY 2026 (BEAUTIFULLY FRAMED MODAL OVERLAY WITH GUARANTEED VISIBLE FOOTER) */}
-      <AnimatePresence>
-        {isGlobalScaleOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
+      {createPortal(
+        <AnimatePresence>
+          {isGlobalScaleOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={cn(
@@ -2464,7 +2493,7 @@ function EscalaControl() {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}>
-                        <SelectTrigger className="w-[120px] h-7 text-xs font-bold border-none bg-muted/50">
+                        <SelectTrigger className="w-[120px] h-7 text-xs font-bold border border-blue-200 hover:bg-blue-50 text-blue-600 dark:border-blue-900/50 dark:hover:bg-blue-950/20 dark:text-blue-400 bg-transparent">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[200]">
@@ -2474,7 +2503,7 @@ function EscalaControl() {
                         </SelectContent>
                       </Select>
                       <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}>
-                        <SelectTrigger className="w-[80px] h-7 text-xs font-bold border-none bg-muted/50">
+                        <SelectTrigger className="w-[80px] h-7 text-xs font-bold border border-fuchsia-200 hover:bg-fuchsia-50 text-fuchsia-600 dark:border-fuchsia-900/50 dark:hover:bg-fuchsia-950/20 dark:text-fuchsia-400 bg-transparent">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[200]">
@@ -2486,46 +2515,61 @@ function EscalaControl() {
                     </div>
                     
                     {/* Shift Tabs */}
-                    <div className="hidden sm:flex bg-muted rounded-md p-0.5 h-7">
+                    <div className="hidden sm:flex bg-muted/60 rounded-md p-0.5 h-7 border border-slate-200 dark:border-slate-800">
                       <button 
                         onClick={() => setGlobalShiftFilter("all")} 
-                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "all" ? "font-bold bg-background shadow-sm text-foreground" : "font-medium text-muted-foreground hover:text-foreground")}
+                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "all" ? "font-bold bg-teal-100 dark:bg-teal-900/30 shadow-sm text-teal-700 dark:text-teal-400" : "font-medium text-muted-foreground hover:text-foreground")}
                       >Todos os Turnos</button>
                       <button 
                         onClick={() => setGlobalShiftFilter("impar_diurno")} 
-                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "impar_diurno" ? "font-bold bg-background shadow-sm text-foreground" : "font-medium text-muted-foreground hover:text-foreground")}
+                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "impar_diurno" ? "font-bold bg-orange-100 dark:bg-orange-900/30 shadow-sm text-orange-700 dark:text-orange-400" : "font-medium text-muted-foreground hover:text-foreground")}
                       >Diurno A</button>
                       <button 
                         onClick={() => setGlobalShiftFilter("impar_noturno")} 
-                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "impar_noturno" ? "font-bold bg-background shadow-sm text-foreground" : "font-medium text-muted-foreground hover:text-foreground")}
+                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "impar_noturno" ? "font-bold bg-indigo-100 dark:bg-indigo-900/30 shadow-sm text-indigo-700 dark:text-indigo-400" : "font-medium text-muted-foreground hover:text-foreground")}
                       >Noturno A</button>
                       <button 
                         onClick={() => setGlobalShiftFilter("par_diurno")} 
-                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "par_diurno" ? "font-bold bg-background shadow-sm text-foreground" : "font-medium text-muted-foreground hover:text-foreground")}
+                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "par_diurno" ? "font-bold bg-orange-100 dark:bg-orange-900/30 shadow-sm text-orange-700 dark:text-orange-400" : "font-medium text-muted-foreground hover:text-foreground")}
                       >Diurno B</button>
                       <button 
                         onClick={() => setGlobalShiftFilter("par_noturno")} 
-                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "par_noturno" ? "font-bold bg-background shadow-sm text-foreground" : "font-medium text-muted-foreground hover:text-foreground")}
+                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "par_noturno" ? "font-bold bg-indigo-100 dark:bg-indigo-900/30 shadow-sm text-indigo-700 dark:text-indigo-400" : "font-medium text-muted-foreground hover:text-foreground")}
                       >Noturno B</button>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 flex-wrap">                    <Button
+                  <div className="flex items-center gap-2 flex-wrap">
+
+                    <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsAuthModalOpen(true)}
-                      className="gap-1.5 h-7 text-xs hidden md:flex"
-                      title="Folgas extras bloqueadas — clique para liberar"
+                      onClick={() => setIsGlobalScaleOpen(false)}
+                      className="gap-1.5 h-7 text-xs font-semibold border-teal-200 hover:bg-teal-100 text-teal-600 hover:text-teal-700 dark:border-teal-900/50 dark:hover:bg-teal-900/30 dark:text-teal-400 dark:hover:text-teal-300 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md"
                     >
-                      <ShieldOff className="h-3 w-3" /> Destravar Escala
+                      <Undo2 className="h-3.5 w-3.5" /> Voltar
                     </Button>
-                    
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { if (!isMonthUnlocked) setIsAuthModalOpen(true); }}
+                      className={cn(
+                        "gap-1.5 h-7 text-xs hidden md:flex font-semibold transition-all duration-200 shadow-sm",
+                        !isMonthUnlocked
+                          ? "border-amber-200 hover:bg-amber-100 text-amber-600 hover:text-amber-700 dark:border-amber-900/50 dark:hover:bg-amber-900/30 dark:text-amber-400 dark:hover:text-amber-300 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 hover:shadow-md"
+                          : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50 cursor-default opacity-70"
+                      )}
+                      title={!isMonthUnlocked ? "Folgas extras bloqueadas — clique para liberar" : "A escala já está destravada"}
+                    >
+                      <ShieldOff className="h-3 w-3" /> {isMonthUnlocked ? "Escala Liberada" : "Destravar Escala"}
+                    </Button>
 
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={() => window.print()} 
-                      className="gap-1.5 h-7 text-xs no-print border-emerald-200 hover:bg-emerald-50/50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-semibold hidden lg:flex"
+                      className="gap-1.5 h-7 text-xs no-print border-emerald-200 hover:bg-emerald-100 dark:border-emerald-900/50 dark:hover:bg-emerald-900/30 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-semibold hidden lg:flex transition-all duration-200 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md"
                     >
                       <Printer className="h-3.5 w-3.5 text-emerald-500" /> Imprimir Escala
                     </Button>
@@ -2534,14 +2578,43 @@ function EscalaControl() {
                       size="sm" 
                       onClick={handleGeneratePDF}
                       disabled={isGeneratingPDF}
-                      className="gap-1.5 h-7 text-xs no-print border-blue-200 hover:bg-blue-50/50 dark:border-blue-900/50 dark:hover:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-semibold hidden lg:flex"
+                      className="gap-1.5 h-7 text-xs no-print border-blue-200 hover:bg-blue-100 dark:border-blue-900/50 dark:hover:bg-blue-900/30 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hidden lg:flex transition-all duration-200 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 shadow-sm hover:shadow-md"
                     >
                       <Download className={`h-3.5 w-3.5 text-blue-500 ${isGeneratingPDF ? "animate-pulse" : ""}`} /> 
                       {isGeneratingPDF ? "Gerando..." : "Salvar em PDF"}
                     </Button>
 
-                    <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs no-print hidden xl:flex">
-                      <Lock className="h-3 w-3" /> Bloquear Mês
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => { 
+                        if (isMonthUnlocked) {
+                          setIsLockConfirmOpen(true); 
+                        } else {
+                          toast.warning("A escala JÁ ESTÁ bloqueada. Se deseja editar, clique em Destravar Escala.", {
+                            style: {
+                              background: '#fefce8',
+                              color: '#a16207',
+                              border: '1px solid #fde047',
+                              padding: '16px',
+                              borderRadius: '12px',
+                              boxShadow: '0 20px 25px -5px rgba(234, 179, 8, 0.15)',
+                              fontSize: '14px',
+                              fontWeight: '600'
+                            },
+                            iconTheme: { primary: '#ca8a04', secondary: '#fefce8' }
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "gap-1.5 h-7 text-xs no-print hidden xl:flex font-semibold transition-all duration-200 shadow-sm",
+                        isMonthUnlocked
+                          ? "border-rose-200 hover:bg-rose-100 text-rose-600 hover:text-rose-700 dark:border-rose-900/50 dark:hover:bg-rose-900/30 dark:text-rose-400 dark:hover:text-rose-300 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 hover:shadow-md bg-rose-50 dark:bg-rose-900/10"
+                          : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50 cursor-default opacity-70"
+                      )}
+                      title={isMonthUnlocked ? "A escala está destravada e editável. Clique para bloquear novamente." : "A escala já está bloqueada"}
+                    >
+                      <Lock className="h-3 w-3" /> {isMonthUnlocked ? "Bloquear Mês" : "Mês Bloqueado"}
                     </Button>
 
                     
@@ -2549,7 +2622,7 @@ function EscalaControl() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setIsGlobalScaleOpen(false)}
-                      className="rounded-full hover:bg-slate-150 dark:hover:bg-slate-800 shrink-0 h-7 w-7"
+                      className="rounded-full hover:bg-slate-150 dark:hover:bg-slate-800 shrink-0 h-7 w-7 transition-all duration-200 hover:-translate-y-0.5 active:scale-90 active:translate-y-0"
                     >
                       <X className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -2623,14 +2696,14 @@ function EscalaControl() {
                     className={cn(
                       "sm:col-span-1 rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
                       globalShiftFilter === "all" 
-                        ? "bg-slate-900 border-black shadow-slate-300 dark:shadow-slate-800" 
-                        : "bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-800 dark:to-slate-900 border-slate-600 dark:border-slate-700"
+                        ? "bg-emerald-500 border-emerald-600 shadow-emerald-200 dark:shadow-emerald-900" 
+                        : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
                     )}
                     onClick={() => setGlobalShiftFilter("all")}
                   >
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "all" ? "text-white" : "text-slate-300")}>Total Geral</span>
-                    <span className="text-3xl font-black text-white leading-none">{allProfessionals.length}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">profissionais</span>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "all" ? "text-white" : "text-emerald-700 dark:text-emerald-400")}>Total Geral</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "all" ? "text-white" : "text-emerald-600 dark:text-emerald-300")}>{allProfessionals.length}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "all" ? "text-emerald-100" : "text-emerald-500 dark:text-emerald-500")}>profissionais</span>
                   </div>
 
                   {/* Diurno A */}
@@ -2690,7 +2763,7 @@ function EscalaControl() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todo Corpo Assistencial</SelectItem>
-                        <SelectItem value="nurse">Enfermeiro Supervisor</SelectItem>
+                        <SelectItem value="nurse">Enfermeiro Liderança</SelectItem>
                         <SelectItem value="technician">Técnico de Enfermagem</SelectItem>
                       </SelectContent>
                     </Select>
@@ -2882,7 +2955,7 @@ function EscalaControl() {
 
                             const getRoleOrder = (role) => {
                               const r = String(role || '').toUpperCase().trim();
-                              if (r === 'RES.TECNICA' || r === 'SUPERVISÃO') return 0;
+                              if (r === 'RES.TECNICA' || r === 'LIDERANÇA' || r === 'SUPERVISÃO') return 0;
                               if (r === 'ENFERMEIRA' || r === 'ENFERMEIRO' || r === 'NURSE') return 1;
                               return 2;
                             };
@@ -2891,7 +2964,7 @@ function EscalaControl() {
                               const r = String(role || '').toUpperCase().trim();
                               if (r === 'ENFERMEIRA' || r === 'ENFERMEIRO' || r === 'NURSE') return 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/40 dark:text-teal-300';
                               if (r.startsWith('TEC') || r.startsWith('AUX') || r === 'TECHNICIAN') return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300';
-                              if (r === 'RES.TECNICA' || r === 'SUPERVISÃO') return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300';
+                              if (r === 'RES.TECNICA' || r === 'LIDERANÇA' || r === 'SUPERVISÃO') return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300';
                               return 'bg-gray-100 text-gray-650 border-gray-300';
                             };
 
@@ -2904,7 +2977,7 @@ function EscalaControl() {
 
                               const showGroupHeader = index === 0 || currOrder !== prevOrder;
                               const groupLabel =
-                                currOrder === 0 ? '— RESPONSÁVEL TÉCNICA / SUPERVISÃO —' :
+                                currOrder === 0 ? '— RESPONSÁVEL TÉCNICA / LIDERANÇA —' :
                                 currOrder === 1 ? '— ENFERMEIROS(AS) —' :
                                 '— TÉCNICOS E AUXILIARES DE ENFERMAGEM —';
                               const groupColor =
@@ -3089,17 +3162,34 @@ function EscalaControl() {
                         </span>
                       </div>
                       
-                      <div className="flex flex-col items-center gap-1.5 min-w-[280px]">
-                        <div className="w-full border-b border-black h-5" />
-                        <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-wider text-center">
-                          Renata Ap. Bueno Pereira
-                        </span>
-                        <span className="text-[9.5px] font-bold text-slate-600 uppercase tracking-wide text-center">
-                          Enfermeira Responsável Técnica (RT)
-                        </span>
-                        <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
-                          COREN-SP 484843
-                        </span>
+                      <div className="flex flex-col gap-10">
+                        {/* Renata */}
+                        <div className="flex flex-col items-center gap-1.5 min-w-[280px]">
+                          <div className="w-full border-b border-black h-5" />
+                          <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-wider text-center">
+                            Renata Ap. Bueno Pereira
+                          </span>
+                          <span className="text-[9.5px] font-bold text-slate-600 uppercase tracking-wide text-center">
+                            Enfermeira Responsável Técnica (RT)
+                          </span>
+                          <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
+                            COREN-SP 484843
+                          </span>
+                        </div>
+                        
+                        {/* Maria Eduarda */}
+                        <div className="flex flex-col items-center gap-1.5 min-w-[280px]">
+                          <div className="w-full border-b border-black h-5" />
+                          <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-wider text-center">
+                            Maria Eduarda Spadini de Oliveira
+                          </span>
+                          <span className="text-[9.5px] font-bold text-slate-600 uppercase tracking-wide text-center">
+                            Liderança
+                          </span>
+                          <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
+                            COREN-SP 635293
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3107,116 +3197,13 @@ function EscalaControl() {
               </div>
             </div>
 
-              {/* Bottom bar */}
-              <div className="border-t bg-card px-6 py-4 flex items-center justify-end shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.02)]">
-                <Button
-                  onClick={() => setIsGlobalScaleOpen(false)}
-                  className="px-6 h-10 text-xs bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 text-white font-black rounded-lg shadow-sm"
-                >
-                  Fechar Painel de Escala
-                </Button>
-              </div>
-
-              {/* Auth Modal for Unlocking Schedule */}
-              <AnimatePresence>
-                {isAuthModalOpen && (
-                  <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 overflow-hidden"
-                    >
-                      <button
-                        onClick={() => setIsAuthModalOpen(false)}
-                        className="absolute top-4 right-4 rounded-full p-1 text-muted-foreground hover:bg-muted transition-colors text-xs"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-
-                      <div className="flex flex-col items-center text-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                          <Lock className="h-6 w-6" />
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-base font-bold text-card-foreground">Liberar Folgas Extras</h3>
-                          <p className="text-xs text-muted-foreground">Insira as credenciais administrativas para habilitar os itens verdes da escala.</p>
-                        </div>
-                      </div>
-
-                      <form onSubmit={handleAuthSubmit} className="space-y-4 mt-6">
-                        <div className="space-y-1 text-left">
-                          <Label htmlFor="auth-username" className="text-[10px] uppercase font-bold tracking-wide">Usuário</Label>
-                          <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              id="auth-username"
-                              type="text"
-                              placeholder="admin"
-                              value={username}
-                              onChange={(e) => setUsername(e.target.value)}
-                              className="pl-9 h-9 text-xs"
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1 text-left">
-                          <Label htmlFor="auth-password" className="text-[10px] uppercase font-bold tracking-wide">Senha</Label>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              id="auth-password"
-                              type="password"
-                              placeholder="••••••••"
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              className="pl-9 h-9 text-xs"
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        <AnimatePresence>
-                          {authError && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0 }}
-                              className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[11px] font-medium text-left"
-                            >
-                              <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-                              <span>{authError}</span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        <div className="flex gap-3 pt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsAuthModalOpen(false)}
-                            className="flex-1 text-xs h-9"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="submit"
-                            className="flex-1 text-xs h-9 bg-primary text-primary-foreground hover:bg-primary/95 shadow"
-                          >
-                            Confirmar
-                          </Button>
-                        </div>
-                      </form>
-                    </motion.div>
-                  </div>
-                )}
-              </AnimatePresence>
             </div>
           </motion.div>
         </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+    )}
 
       {/* INTERACTIVE CELL EDICTOR MODAL DIALOG */}
       <Dialog open={!!editingCell} onOpenChange={(open) => !open && setEditingCell(null)}>
@@ -3456,14 +3443,18 @@ function EscalaControl() {
                         <Label className="text-[10px] font-black uppercase text-slate-500">Função / Cargo</Label>
                         <Select 
                           value={editingRole} 
-                          onValueChange={(val: "nurse" | "technician") => setEditingRole(val)}
+                          onValueChange={(val) => setEditingRole(val)}
                         >
                           <SelectTrigger className="h-10 text-xs rounded-lg bg-background">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="nurse" className="text-xs">Enfermeiro</SelectItem>
-                            <SelectItem value="technician" className="text-xs">Téc. Enfermagem</SelectItem>
+                            <SelectItem value="RES.TECNICA" className="text-xs">Resp. Técnica</SelectItem>
+                            <SelectItem value="LIDERANÇA" className="text-xs">Liderança</SelectItem>
+                            <SelectItem value="ENFERMEIRA" className="text-xs">Enfermeira</SelectItem>
+                            <SelectItem value="ENFERMEIRO" className="text-xs">Enfermeiro</SelectItem>
+                            <SelectItem value="TEC.ENF" className="text-xs">Téc. Enfermagem</SelectItem>
+                            <SelectItem value="AUX.ENF" className="text-xs">Aux. Enfermagem</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -3823,7 +3814,7 @@ function EscalaControl() {
                           {s.name}
                         </span>
                         <div className="flex gap-2 text-[10.5px] text-muted-foreground">
-                          <span>Supervisor Off: <strong className={offNurses > (limits?.nurses || 1) ? "text-red-500" : "text-emerald-500"}>{offNurses}/{limits?.nurses || 1}</strong></span>
+                          <span>Liderança Off: <strong className={offNurses > (limits?.nurses || 1) ? "text-red-500" : "text-emerald-500"}>{offNurses}/{limits?.nurses || 1}</strong></span>
                           <span>Técnico Off: <strong className={offTechs > (limits?.technicians || 3) ? "text-red-500" : "text-emerald-500"}>{offTechs}/{limits?.technicians || 3}</strong></span>
                         </div>
                       </div>
@@ -3939,7 +3930,7 @@ function EscalaControl() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="technician">Técnico de Enfermagem</SelectItem>
-                              <SelectItem value="nurse">Enfermeiro Supervisor</SelectItem>
+                              <SelectItem value="nurse">Enfermeiro Liderança</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -4238,12 +4229,63 @@ function EscalaControl() {
                     <div className="space-y-4">
                       {/* MINI CALENDAR GRID WITH CYCLE HIGHLIGHTING */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-black uppercase tracking-wider text-slate-500">Calendário de Turnos ({getMonthName(selectedMonth)} de {selectedYear})</Label>
-                          <Badge className="bg-indigo-600 text-white font-black uppercase rounded text-[10px] px-2 py-0.5 animate-pulse">
-                            Dia {collabRequestDay} de {getMonthName(selectedMonth)} Selecionado
-                          </Badge>
+                        {/* Cabeçalho com navegação de mês e botão destravar */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={goToPrevMonth}
+                              className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs font-black cursor-pointer"
+                              title="Mês anterior"
+                            >
+                              ‹
+                            </button>
+                            <Label className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 min-w-[160px] text-center">
+                              {getMonthName(selectedMonth)} de {selectedYear}
+                            </Label>
+                            <button
+                              type="button"
+                              onClick={goToNextMonth}
+                              className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs font-black cursor-pointer"
+                              title="Próximo mês"
+                            >
+                              ›
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {!isMonthUnlocked ? (
+                              <button
+                                type="button"
+                                onClick={() => { setIsAuthModalOpen(true); setAuthError(''); }}
+                                className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-wide hover:bg-red-500/20 transition-all cursor-pointer"
+                                title="Clique para destravar o mês e permitir edições"
+                              >
+                                <Lock className="h-3 w-3" /> Destravar Mês
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setIsMonthUnlocked(false); toast.info("Mês bloqueado."); }}
+                                className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wide hover:bg-emerald-500/20 transition-all cursor-pointer"
+                                title="Clique para bloquear novamente"
+                              >
+                                <ShieldOff className="h-3 w-3" /> Mês Desbloqueado
+                              </button>
+                            )}
+                            <Badge className={`font-black uppercase rounded text-[10px] px-2 py-0.5 ${isMonthUnlocked ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                              Dia {collabRequestDay} Selecionado
+                            </Badge>
+                          </div>
                         </div>
+
+                        {/* Aviso quando mês está travado */}
+                        {!isMonthUnlocked && (
+                          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-500/8 border border-red-400/20 text-red-600 dark:text-red-400 text-[10px] font-semibold">
+                            <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+                            Calendário bloqueado. Clique em <strong>"Destravar Mês"</strong> para selecionar dias de folga.
+                          </div>
+                        )}
 
                         <div className="bg-slate-50 dark:bg-slate-900/35 rounded-xl p-4 border border-border/80 shadow-inner">
                           <div className="grid grid-cols-7 gap-2 text-center mb-2">
@@ -4253,8 +4295,8 @@ function EscalaControl() {
                               </span>
                             ))}
 
-                            {/* Offset empty spaces for May 2026 starting Friday (5 offset days) */}
-                            {Array.from({ length: 5 }).map((_, i) => (
+                            {/* Offset dinâmico: calcula o dia da semana em que o mês começa */}
+                            {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }).map((_, i) => (
                               <div key={`offset-collab-${i}`} className="bg-transparent aspect-square" />
                             ))}
 
@@ -4333,10 +4375,17 @@ function EscalaControl() {
                                 <button
                                   key={`collab-day-${day}`}
                                   type="button"
-                                  onClick={() => setCollabRequestDay(day)}
+                                  onClick={() => {
+                                    if (!isMonthUnlocked) {
+                                      toast.warning("🔒 Mês bloqueado! Clique em \"Destravar Mês\" para selecionar dias.");
+                                      return;
+                                    }
+                                    setCollabRequestDay(day);
+                                  }}
                                   className={cn(
-                                    "aspect-square text-xs rounded-xl transition-all flex flex-col items-center justify-between p-2 relative cursor-pointer border select-none group",
-                                    isSelected
+                                    "aspect-square text-xs rounded-xl transition-all flex flex-col items-center justify-between p-2 relative border select-none group",
+                                    isMonthUnlocked ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                                    isSelected && isMonthUnlocked
                                       ? "bg-blue-600 border-blue-600 text-white font-black shadow-md scale-105 z-10"
                                       : isRequestDay 
                                         ? "bg-amber-100 dark:bg-amber-950/40 border-amber-300 text-amber-850 dark:text-amber-400 hover:bg-amber-200 font-bold"
@@ -4524,7 +4573,7 @@ function EscalaControl() {
           </CardHeader>
           <CardContent className="pt-4 p-0">
             <div className="p-4 bg-purple-500/5 border-b text-xs leading-relaxed font-semibold text-purple-800 dark:text-purple-400">
-              ⚡ <strong>Regra de Decisão Conjunta:</strong> Renata (RT Enfermagem) e Maria Eduarda (Liderança) devem ambas deferir as folgas para homologação oficial na escala. O indeferimento de qualquer uma das duas reprova a solicitação.
+              ⚡ <strong>Regra de Autonomia Igualitária:</strong> Renata (RT Enfermagem) e Maria Eduarda (Liderança) possuem autonomia igual para deferir as folgas. A aprovação ou reprovação por qualquer uma delas será suficiente para validar ou recusar a solicitação na escala oficial.
             </div>
 
             <Table>
@@ -4542,7 +4591,7 @@ function EscalaControl() {
                 {requests.filter(r => r.status === "pending").length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-10 text-xs text-muted-foreground font-bold">
-                      Sem solicitações pendentes no momento. Todos os direitos de folgas foram apreciados por Renata (RT) e Maria Eduarda (Liderança).
+                      Sem solicitações pendentes no momento. Todos os direitos de folgas foram apreciados.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -4814,6 +4863,55 @@ function EscalaControl() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal de Confirmação de Bloqueio de Mês */}
+      <Dialog open={isLockConfirmOpen} onOpenChange={setIsLockConfirmOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black text-rose-600 dark:text-rose-400">
+              <Lock className="h-5 w-5" />
+              Bloquear Mês
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-xs">
+              Tem certeza que deseja bloquear a escala?
+              Isso impedirá novas edições no calendário até que a escala seja destravada novamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
+            <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); setIsLockConfirmOpen(false); }} className="h-8 text-xs font-bold">
+              Cancelar
+            </Button>
+            <Button 
+              type="button"
+              className="h-8 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsMonthUnlocked(false);
+                setIsLockConfirmOpen(false);
+                setTimeout(() => {
+                  toast.success("Mês bloqueado com sucesso! Edições foram travadas.", {
+                    style: {
+                      background: '#ecfdf5',
+                      color: '#047857',
+                      border: '1px solid #34d399',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      boxShadow: '0 20px 25px -5px rgba(16, 185, 129, 0.15)',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    },
+                    iconTheme: { primary: '#059669', secondary: '#ecfdf5' }
+                  });
+                }, 100);
+              }}
+            >
+              <Lock className="h-3.5 w-3.5 mr-2" />
+              Confirmar Bloqueio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Transferência de Turno */}
       <Dialog open={!!transferConfirm} onOpenChange={(open) => !open && setTransferConfirm(null)}>
         <DialogContent className="sm:max-w-[425px]">
@@ -4893,6 +4991,105 @@ function EscalaControl() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Auth Modal for Unlocking Schedule — rendered at root level via portal so it works from any tab */}
+      {createPortal(
+        <AnimatePresence>
+          {isAuthModalOpen && (
+            <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 overflow-hidden"
+              >
+                <button
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className="absolute top-4 right-4 rounded-full p-1 text-muted-foreground hover:bg-muted transition-colors text-xs cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <Lock className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-card-foreground">Destravar Mês</h3>
+                    <p className="text-xs text-muted-foreground">Insira as credenciais administrativas para desbloquear o calendário e permitir edições de folga.</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleAuthSubmit} className="space-y-4 mt-6">
+                  <div className="space-y-1 text-left">
+                    <Label htmlFor="auth-username-global" className="text-[10px] uppercase font-bold tracking-wide">Usuário</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        id="auth-username-global"
+                        type="text"
+                        placeholder="admin"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="pl-9 h-9 text-xs"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-left">
+                    <Label htmlFor="auth-password-global" className="text-[10px] uppercase font-bold tracking-wide">Senha</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        id="auth-password-global"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-9 h-9 text-xs"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {authError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[11px] font-medium text-left"
+                      >
+                        <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+                        <span>{authError}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsAuthModalOpen(false)}
+                      className="flex-1 text-xs h-9"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1 text-xs h-9 bg-primary text-primary-foreground hover:bg-primary/95 shadow"
+                    >
+                      Confirmar
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

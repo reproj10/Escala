@@ -374,7 +374,7 @@ export const importedEmployees = [
   {
     "id": "emp-diurno_b-33",
     "name": "Maria Eduarda Spadini de Oliviera",
-    "role": "SUPERVISÃO",
+    "role": "LIDERANÇA",
     "coren": "820597",
     "shift_type": "diurno_b",
     "work_hours": "07:00 as 19:00",

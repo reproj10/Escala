@@ -38,7 +38,7 @@ function getDayOfWeek(day, month, year) {
 const roleBadgeColor = (role) => {
   if (ENF_ROLES.includes(role)) return 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/40 dark:text-teal-300';
   if (TEC_ROLES.includes(role)) return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300';
-  if (role === 'RES.TECNICA' || role === 'SUPERVISÃO') return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300';
+  if (role === 'RES.TECNICA' || role === 'LIDERANÇA') return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300';
   return 'bg-gray-100 text-gray-600 border-gray-300';
 };
 
@@ -106,10 +106,10 @@ const SHIFT_HOURS = {
   noturno_b: '19:00 às 07:00',
 };
 
-// Role sort order: RT/Supervisão first, then Enfermeiros, then Técnicos/Auxiliares
+// Role sort order: RT/Liderança first, then Enfermeiros, then Técnicos/Auxiliares
 const ROLE_ORDER = {
   'RES.TECNICA': 0,
-  'SUPERVISÃO': 1,
+  'LIDERANÇA': 1,
   'ENFERMEIRA': 2,
   'ENFERMEIRO': 2,
   'TEC.ENF': 3,
@@ -137,7 +137,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
 
   const rawFiltered = shiftType === 'todos' ? entries : entries.filter(e => e.shift_type === shiftType);
 
-  // Sort: RT/Supervisão → Enfermeiros → Técnicos/Auxiliares, then alphabetically within group
+  // Sort: RT/Liderança → Enfermeiros → Técnicos/Auxiliares, then alphabetically within group
   const filteredEntries = [...rawFiltered].sort((a, b) => {
     const empA = employees.find(e => e.name?.trim() === a.employee_name?.trim());
     const empB = employees.find(e => e.name?.trim() === b.employee_name?.trim());
@@ -343,7 +343,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
               // Insert group header separator when role group changes
               const showGroupHeader = idx === 0 || currOrder !== prevOrder;
               const groupLabel =
-                currOrder === 0 || currOrder === 1 ? '— Responsável Técnica / Supervisão —' :
+                currOrder === 0 || currOrder === 1 ? '— Responsável Técnica / Liderança —' :
                 currOrder === 2 ? '— Enfermeiros(as) —' :
                 '— Técnicos e Auxiliares de Enfermagem —';
               const groupColor =

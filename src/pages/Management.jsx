@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserX, UserCheck, EyeOff, Pencil, UserPlus, X, Save, RefreshCw, Search, FileHeart, Filter, Clock, Users, Activity, FileText, Sun } from 'lucide-react';
+import { UserX, UserCheck, EyeOff, Pencil, UserPlus, X, Save, RefreshCw, Search, FileHeart, Filter, Clock, Users, Activity, FileText, Sun, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { formatName, formatPhone, formatCPF, validateCPF } from '@/lib/utils';
 
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusColors = { active: 'bg-success/20 text-success border-success/30', inactive: 'bg-destructive/20 text-destructive border-destructive/30', on_leave: 'bg-warning/20 text-warning border-warning/30' };
@@ -23,6 +24,7 @@ export default function Management() {
   
   // Interaction states
   const [editingEmployee, setEditingEmployee] = useState(null); 
+  const [employeeToDelete, setEmployeeToDelete] = useState(null); 
   const [quickCertEmployee, setQuickCertEmployee] = useState(null); 
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL'); // 'ALL' | 'RT' | 'ENF' | 'TEC'
@@ -97,6 +99,14 @@ export default function Management() {
     },
   });
 
+  const deleteEmployeeAction = useMutation({
+    mutationFn: (id) => db.entities.Employee.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast({ title: 'Colaborador excluído com sucesso!' });
+    },
+  });
+
   const createQuickCertificate = useMutation({
     mutationFn: async ({ employeeId, name, cid, description, start_date, days }) => {
       const end = new Date(new Date(start_date).getTime() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -136,10 +146,21 @@ export default function Management() {
   const handleEditSubmit = (e) => {
     e.preventDefault();
     if (!editingEmployee) return;
+
+    if (editingEmployee.cpf && !validateCPF(editingEmployee.cpf)) {
+      toast({
+        title: 'CPF Inválido',
+        description: 'Por favor, digite um CPF válido para salvar as alterações.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     updateEmployeeDetails.mutate({
       id: editingEmployee.id,
       data: {
         name: editingEmployee.name,
+        cpf: editingEmployee.cpf,
         role: editingEmployee.role,
         coren: editingEmployee.coren,
         work_hours: editingEmployee.work_hours,
@@ -177,7 +198,7 @@ export default function Management() {
       // Role check
       const role = emp.role?.toUpperCase().trim();
       if (roleFilter === 'RT') {
-        const isRt = role === 'RES.TECNICA' || role === 'SUPERVISÃO';
+        const isRt = role === 'RES.TECNICA' || role === 'LIDERANÇA';
         if (!isRt) return false;
       } else if (roleFilter === 'ENF') {
         const isEnf = role === 'ENFERMEIRA' || role === 'ENFERMEIRO';
@@ -407,7 +428,7 @@ export default function Management() {
             type="text" 
             placeholder="Pesquisar por nome, coren..." 
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(formatName(e.target.value))}
             className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {searchQuery && (
@@ -487,7 +508,7 @@ export default function Management() {
                 : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
             }`}
           >
-            RT & Supervisão
+            RT & Liderança
           </button>
           <button 
             onClick={() => setRoleFilter('ENF')}
@@ -524,6 +545,7 @@ export default function Management() {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Nome</TableHead>
+                <TableHead className="font-semibold">CPF</TableHead>
                 <TableHead className="font-semibold">Função</TableHead>
                 <TableHead className="font-semibold">COREN</TableHead>
                 <TableHead className="font-semibold">Turno</TableHead>
@@ -556,6 +578,7 @@ export default function Management() {
                         {emp.role}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono">{emp.cpf || '-'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">{emp.coren || '-'}</TableCell>
                     <TableCell>
                       <Select
@@ -644,6 +667,17 @@ export default function Management() {
                             <UserX className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         )}
+
+                        {/* 5. Delete Action */}
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7 hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors" 
+                          onClick={() => setEmployeeToDelete(emp)}
+                          title="Excluir colaborador"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -686,13 +720,41 @@ export default function Management() {
               </div>
 
               <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Nome Completo</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={editingEmployee.name} 
+                      onChange={e => setEditingEmployee({ ...editingEmployee, name: formatName(e.target.value) })}
+                      className="w-full h-9 rounded-lg border border-border bg-card px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={editingEmployee.cpf && editingEmployee.cpf.length === 14 && !validateCPF(editingEmployee.cpf) ? "text-[10px] uppercase font-bold text-destructive tracking-wider" : "text-[10px] uppercase font-bold text-muted-foreground tracking-wider"}>CPF</label>
+                    <input 
+                      type="text" 
+                      value={editingEmployee.cpf || ''} 
+                      onChange={e => setEditingEmployee({ ...editingEmployee, cpf: formatCPF(e.target.value) })}
+                      placeholder="000.000.000-00"
+                      className={`w-full h-9 rounded-lg border bg-card px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary ${
+                        editingEmployee.cpf && editingEmployee.cpf.length === 14 && !validateCPF(editingEmployee.cpf) ? "border-destructive focus-visible:ring-destructive" : "border-border"
+                      }`}
+                    />
+                    {editingEmployee.cpf && editingEmployee.cpf.length === 14 && !validateCPF(editingEmployee.cpf) && (
+                      <p className="text-[10px] text-destructive mt-1 font-semibold">CPF inválido</p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Nome Completo</label>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Telefone / WhatsApp</label>
                   <input 
                     type="text" 
-                    required
-                    value={editingEmployee.name} 
-                    onChange={e => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
+                    value={editingEmployee.phone || ''} 
+                    onChange={e => setEditingEmployee({ ...editingEmployee, phone: formatPhone(e.target.value) })}
+                    placeholder="(11) 99999-9999"
                     className="w-full h-9 rounded-lg border border-border bg-card px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
@@ -717,7 +779,7 @@ export default function Management() {
                       className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="RES.TECNICA">RT (Responsável Técnica)</option>
-                      <option value="SUPERVISÃO">Supervisão</option>
+                      <option value="LIDERANÇA">Liderança</option>
                       <option value="ENFERMEIRA">Enfermeira</option>
                       <option value="ENFERMEIRO">Enfermeiro</option>
                       <option value="TEC.ENF">Técnico de Enfermagem</option>
@@ -733,7 +795,7 @@ export default function Management() {
                       type="text" 
                       required
                       value={editingEmployee.sector || ''} 
-                      onChange={e => setEditingEmployee({ ...editingEmployee, sector: e.target.value })}
+                      onChange={e => setEditingEmployee({ ...editingEmployee, sector: formatName(e.target.value) })}
                       className="w-full h-9 rounded-lg border border-border bg-card px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
@@ -922,6 +984,60 @@ export default function Management() {
                   </Button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Custom Delete Confirmation Modal */}
+        {employeeToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEmployeeToDelete(null)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              className="relative w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-10 p-6"
+            >
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Trash2 className="h-6 w-6 text-destructive" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-card-foreground">Excluir Colaborador</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Tem certeza que deseja excluir <strong>{employeeToDelete.name}</strong>? Essa ação não poderá ser desfeita.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 w-full pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setEmployeeToDelete(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="destructive"
+                    className="flex-1 gap-2"
+                    disabled={deleteEmployeeAction.isPending}
+                    onClick={() => {
+                      deleteEmployeeAction.mutate(employeeToDelete.id);
+                      setEmployeeToDelete(null);
+                    }}
+                  >
+                    {deleteEmployeeAction.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Sim, Excluir
+                  </Button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

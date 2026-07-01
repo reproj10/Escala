@@ -31,6 +31,18 @@ const normalizeName = (name) => {
   return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
 };
 
+const calculateEndDate = (startDateStr, days) => {
+  if (!startDateStr) return '';
+  const parts = startDateStr.split('-');
+  if (parts.length !== 3) return startDateStr;
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  date.setDate(date.getDate() + (days > 0 ? days - 1 : 0));
+  const ny = date.getFullYear();
+  const nm = String(date.getMonth() + 1).padStart(2, '0');
+  const nd = String(date.getDate()).padStart(2, '0');
+  return `${ny}-${nm}-${nd}`;
+};
+
 export default function Certificates() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -46,7 +58,7 @@ export default function Certificates() {
     type: 'AT', 
     cid: '', 
     start_date: new Date().toISOString().split('T')[0], 
-    end_date: new Date().toISOString().split('T')[0], 
+    end_date: calculateEndDate(new Date().toISOString().split('T')[0], 3), 
     days_count: 3, 
     notes: '' 
   });
@@ -63,11 +75,12 @@ export default function Certificates() {
 
   const createCert = useMutation({
     mutationFn: async (data) => {
-      const days = parseInt(data.days_count || 0);
+      const { days_count, notes, type, ...payload } = data;
+      const days = parseInt(data.days_count || data.days || 0);
       const created = await db.entities.MedicalCertificate.create({
-        ...data,
+        ...payload,
         days: days,
-        days_count: days,
+        description: `[${typeLabels[type] || type || 'Atestado'}] ${notes || data.description || ''}`.trim(),
         created_date: new Date().toISOString()
       });
 
@@ -90,7 +103,7 @@ export default function Certificates() {
         type: 'AT', 
         cid: '', 
         start_date: new Date().toISOString().split('T')[0], 
-        end_date: new Date().toISOString().split('T')[0], 
+        end_date: calculateEndDate(new Date().toISOString().split('T')[0], 3), 
         days_count: 3, 
         notes: '' 
       });
@@ -106,11 +119,12 @@ export default function Certificates() {
 
   const updateCert = useMutation({
     mutationFn: async (data) => {
-      const days = parseInt(data.days_count || 0);
+      const { days_count, notes, type, ...payload } = data;
+      const days = parseInt(data.days_count || data.days || 0);
       const updated = await db.entities.MedicalCertificate.update(data.id, {
-        ...data,
+        ...payload,
         days: days,
-        days_count: days
+        description: `[${typeLabels[type] || type || 'Atestado'}] ${notes || data.description || ''}`.trim()
       });
 
       // Find employee accent-insensitively
@@ -185,7 +199,7 @@ export default function Certificates() {
       
       await db.entities.MedicalCertificate.update(cert.id, {
         end_date: todayStr,
-        notes: (cert.notes || '') + ` [Retorno Antecipado em ${format(new Date(), 'dd/MM/yyyy')}]`
+        description: (cert.notes || cert.description || '') + ` [Retorno Antecipado em ${format(new Date(), 'dd/MM/yyyy')}]`
       });
 
       // Find employee accent-insensitively
@@ -454,7 +468,10 @@ export default function Certificates() {
                         required
                         min="1"
                         value={form.days_count} 
-                        onChange={e => setForm({ ...form, days_count: parseInt(e.target.value) || 0 })}
+                        onChange={e => {
+                          const days = parseInt(e.target.value) || 0;
+                          setForm({ ...form, days_count: days, end_date: calculateEndDate(form.start_date, days) });
+                        }}
                         className="h-9 text-xs" 
                       />
                     </div>
@@ -465,7 +482,10 @@ export default function Certificates() {
                         type="date" 
                         required
                         value={form.start_date} 
-                        onChange={e => setForm({ ...form, start_date: e.target.value })}
+                        onChange={e => {
+                          const start = e.target.value;
+                          setForm({ ...form, start_date: start, end_date: calculateEndDate(start, form.days_count) });
+                        }}
                         className="h-9 text-xs" 
                       />
                     </div>
@@ -782,7 +802,10 @@ export default function Certificates() {
                       required
                       min="1"
                       value={editingCert.days_count || editingCert.days || ''} 
-                      onChange={e => setEditingCert({ ...editingCert, days_count: parseInt(e.target.value) || 0, days: parseInt(e.target.value) || 0 })}
+                      onChange={e => {
+                        const days = parseInt(e.target.value) || 0;
+                        setEditingCert({ ...editingCert, days_count: days, days: days, end_date: calculateEndDate(editingCert.start_date, days) });
+                      }}
                       className="h-9 text-xs" 
                     />
                   </div>
@@ -793,7 +816,11 @@ export default function Certificates() {
                       type="date" 
                       required
                       value={editingCert.start_date} 
-                      onChange={e => setEditingCert({ ...editingCert, start_date: e.target.value })}
+                      onChange={e => {
+                        const start = e.target.value;
+                        const days = editingCert.days_count || editingCert.days || 0;
+                        setEditingCert({ ...editingCert, start_date: start, end_date: calculateEndDate(start, days) });
+                      }}
                       className="h-9 text-xs" 
                     />
                   </div>

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search as SearchIcon, User, Calendar, Clock, X, HeartPulse, ShieldCheck, Award, Users, Activity, FileText, UserX, Sun, History, Pencil, UserPlus, Lock } from 'lucide-react';
+import { formatName } from '@/lib/utils';
 
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusLabels = { active: 'Ativo', inactive: 'Inativo', on_leave: 'Afastado' };
@@ -334,7 +335,7 @@ export default function SearchPage() {
         <Input
           placeholder="Digite para pesquisar..."
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => setQuery(formatName(e.target.value))}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)} // Allow onMouseDown click to register first!
           className="pl-10"

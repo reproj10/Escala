@@ -18,7 +18,7 @@ const standardizeRole = (role) => {
   if (r === 'ENFERMEIRA') return 'ENFERMEIRA';
   if (r.includes('RES') && r.includes('TEC')) return 'RES.TECNICA';
   if (r.includes('RESP') && r.includes('TEC')) return 'RES.TECNICA';
-  if (r.includes('SUPERVIS')) return 'SUPERVISÃO';
+  if (r.includes('SUPERVIS')) return 'LIDERANÇA';
   return r;
 };
 

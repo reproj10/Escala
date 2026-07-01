@@ -6,19 +6,20 @@ import Sidebar from './Sidebar';
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const isSchedulePage = location.pathname === '/escala';
+  const isSchedulePage = location.pathname === '/escala' || location.pathname === '/escala-control';
 
   return (
     <div className="h-screen overflow-hidden bg-background flex">
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-      <motion.main
-        initial={false}
-        animate={{ marginLeft: collapsed ? 72 : 260 }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
+      <main
+        style={{ 
+          marginLeft: collapsed ? 72 : 260,
+          transition: 'margin-left 0.3s ease-in-out'
+        }}
         className="flex-1 h-screen overflow-hidden"
       >
         {isSchedulePage ? (
-          <div className="h-full p-4 flex flex-col">
+          <div className="h-full overflow-y-auto p-4 flex flex-col">
             <Outlet />
           </div>
         ) : (
@@ -28,7 +29,7 @@ export default function AppLayout() {
             </div>
           </div>
         )}
-      </motion.main>
+      </main>
     </div>
   );
 }

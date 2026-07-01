@@ -1,6 +1,7 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { motion } from 'framer-motion';
@@ -9,14 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserPlus, Check } from 'lucide-react';
+import { UserPlus, Check, X, Eraser } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { formatName, formatPhone, formatCPF, validateCPF } from '@/lib/utils';
 
 export default function NewEmployee() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    name: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
+    name: '', cpf: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
     work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active',
   });
 
@@ -53,13 +56,42 @@ export default function NewEmployee() {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
       toast({ title: 'Colaborador adicionado com sucesso!' });
-      setForm({ name: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a', work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active' });
+      
+      // Auto-limpa o formulário para o próximo cadastro
+      setForm({
+        name: '', cpf: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
+        work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active',
+      });
     },
+    onError: (error) => {
+      toast({ 
+        title: 'Erro ao adicionar colaborador', 
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (form.cpf && !validateCPF(form.cpf)) {
+      toast({
+        title: 'CPF Inválido',
+        description: 'Por favor, digite um CPF válido.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     createEmployee.mutate(form);
+  };
+
+  const handleClear = () => {
+    setForm({
+      name: '', cpf: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
+      work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active',
+    });
   };
 
   return (
@@ -70,7 +102,14 @@ export default function NewEmployee() {
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card>
+        <Card className="relative">
+          <button
+            type="button"
+            onClick={() => navigate('/gerenciamento')}
+            className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <UserPlus className="h-4 w-4 text-primary" />
@@ -80,20 +119,37 @@ export default function NewEmployee() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
+                <div>
                   <Label>Nome Completo</Label>
-                  <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Nome do colaborador" />
+                  <Input value={form.name} onChange={e => setForm({ ...form, name: formatName(e.target.value) })} required placeholder="Nome do colaborador" />
+                </div>
+                <div>
+                  <Label className={form.cpf && form.cpf.length === 14 && !validateCPF(form.cpf) ? "text-destructive" : ""}>CPF</Label>
+                  <Input 
+                    value={form.cpf} 
+                    onChange={e => setForm({ ...form, cpf: formatCPF(e.target.value) })} 
+                    placeholder="000.000.000-00" 
+                    className={form.cpf && form.cpf.length === 14 && !validateCPF(form.cpf) ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                  {form.cpf && form.cpf.length === 14 && !validateCPF(form.cpf) && (
+                    <p className="text-[10px] text-destructive mt-1 font-semibold">CPF inválido</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Telefone / WhatsApp</Label>
+                  <Input value={form.phone} onChange={e => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="(11) 99999-9999" />
                 </div>
                 <div>
                   <Label>Função</Label>
                   <Select value={form.role} onValueChange={v => setForm({ ...form, role: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="RES.TECNICA">Resp. Técnica</SelectItem>
+                      <SelectItem value="LIDERANÇA">Liderança</SelectItem>
                       <SelectItem value="ENFERMEIRA">Enfermeira</SelectItem>
                       <SelectItem value="ENFERMEIRO">Enfermeiro</SelectItem>
                       <SelectItem value="TEC.ENF">Téc. Enfermagem</SelectItem>
                       <SelectItem value="AUX.ENF">Aux. Enfermagem</SelectItem>
-                      <SelectItem value="RES.TECNICA">Resp. Técnica</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -129,17 +185,28 @@ export default function NewEmployee() {
                 </div>
                 <div>
                   <Label>Setor</Label>
-                  <Input value={form.sector} onChange={e => setForm({ ...form, sector: e.target.value })} placeholder="Ex: Emergência" />
+                  <Input value={form.sector} onChange={e => setForm({ ...form, sector: formatName(e.target.value) })} placeholder="Ex: Emergência" />
                 </div>
                 <div>
                   <Label>Contrato</Label>
-                  <Input value={form.contract_type} onChange={e => setForm({ ...form, contract_type: e.target.value })} placeholder="CLT, Estatutário..." />
+                  <Input value={form.contract_type} onChange={e => setForm({ ...form, contract_type: formatName(e.target.value) })} placeholder="CLT, Estatutário..." />
                 </div>
               </div>
-              <Button type="submit" className="w-full gap-2" disabled={createEmployee.isPending}>
-                <Check className="h-4 w-4" />
-                {createEmployee.isPending ? 'Salvando...' : 'Adicionar Colaborador'}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border/40 mt-4">
+                <Button type="button" variant="ghost" className="w-full sm:w-auto gap-2 text-muted-foreground" onClick={handleClear}>
+                  <Eraser className="h-4 w-4" />
+                  Limpar
+                </Button>
+                <div className="flex-1" />
+                <Button type="button" variant="outline" className="w-full sm:w-auto gap-2" onClick={() => navigate('/gerenciamento')}>
+                  <X className="h-4 w-4" />
+                  Fechar
+                </Button>
+                <Button type="submit" className="w-full sm:w-auto gap-2" disabled={createEmployee.isPending}>
+                  <Check className="h-4 w-4" />
+                  {createEmployee.isPending ? 'Salvando...' : 'Adicionar Colaborador'}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
