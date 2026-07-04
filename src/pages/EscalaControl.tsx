@@ -921,14 +921,16 @@ function EscalaControl() {
     // 4. Determine if it is a scheduled work day according to work shift rules (parity fallback)
     let isScheduledWorkDay = false;
     if (p.shiftId === "rt_lideranca") {
-      const dayOfWeek = (d - 1 + 5) % 7;
+      const dayOfWeek = new Date(selectedYear, selectedMonth - 1, d).getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       isScheduledWorkDay = !isWeekend;
     } else {
-      const isOddDay = d % 2 !== 0;
       const isShiftOdd = p.shiftId === "impar_diurno" || p.shiftId === "diurno_a" || p.shiftId === "impar_noturno" || p.shiftId === "noturno_a";
-      const isShiftEven = p.shiftId === "par_diurno" || p.shiftId === "diurno_b" || p.shiftId === "par_noturno" || p.shiftId === "noturno_b";
-      isScheduledWorkDay = (isShiftOdd && isOddDay) || (isShiftEven && !isOddDay);
+      const patternType = isShiftOdd ? 0 : 1;
+      const baseDateUtc = Date.UTC(2026, 5, 1);
+      const targetDateUtc = Date.UTC(selectedYear, selectedMonth - 1, d);
+      const daysSinceJune1 = Math.floor((targetDateUtc - baseDateUtc) / (1000 * 60 * 60 * 24));
+      isScheduledWorkDay = Math.abs(daysSinceJune1) % 2 === patternType;
     }
 
     // 5. Check general status toggle in the shift (only for scheduled work days to keep non-work days clean)
@@ -2507,7 +2509,7 @@ function EscalaControl() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[200]">
-                          {[2026, 2027, 2028, 2029, 2030].map(y => (
+                          {[2026, 2027, 2028, 2029, 2030, 2031, 2032].map(y => (
                             <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
                           ))}
                         </SelectContent>
@@ -2876,8 +2878,8 @@ function EscalaControl() {
                               color: '#64748b',
                               textTransform: 'uppercase',
                               borderRight: '1px solid #e2e8f0',
-                              width: '220px',
-                              minWidth: '220px',
+                              width: '190px',
+                              minWidth: '190px',
                               height: '45px'
                             }}
                           >
@@ -2885,12 +2887,12 @@ function EscalaControl() {
                               <span className="pdf-content-shift">Colaborador</span>
                             </div>
                           </th>
-                          <th className="categoria-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '120px', minWidth: '120px', height: '45px' }}>
+                          <th className="categoria-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '85px', minWidth: '85px', height: '45px' }}>
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <span className="pdf-content-shift">Categoria</span>
                             </div>
                           </th>
-                          <th className="coren-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '100px', minWidth: '100px', height: '45px' }}>
+                          <th className="coren-header" style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1px solid #e2e8f0', width: '75px', minWidth: '75px', height: '45px' }}>
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <span className="pdf-content-shift">COREN</span>
                             </div>
@@ -2906,8 +2908,8 @@ function EscalaControl() {
                                   padding: 0,
                                   fontWeight: 800,
                                   borderRight: '1px solid #e2e8f0',
-                                  width: '38px',
-                                  minWidth: '36px',
+                                  width: '28px',
+                                  minWidth: '28px',
                                   height: '45px',
                                   backgroundColor: isWeekend ? 'rgba(239,68,68,0.04)' : '#f1f5f9',
                                   color: isWeekend ? '#dc2626' : '#475569',
@@ -2920,7 +2922,7 @@ function EscalaControl() {
                               </th>
                             );
                           })}
-                          <th style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1.5px solid #94a3b8', width: '60px', minWidth: '60px', height: '45px' }}>
+                          <th style={{ padding: 0, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', borderRight: '1.5px solid #94a3b8', width: '45px', minWidth: '45px', height: '45px' }}>
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               Ass.
                             </div>
@@ -3007,7 +3009,8 @@ function EscalaControl() {
                                       style={{
                                         padding: 0,
                                         borderRight: '1px solid #e2e8f0',
-                                        width: '220px',
+                                        width: '190px',
+                                        minWidth: '190px',
                                         height: '40px',
                                         textAlign: isGeneratingPDF ? 'center' : 'left'
                                       }}
@@ -3019,7 +3022,7 @@ function EscalaControl() {
                                       </div>
                                     </td>
                                     {/* Category badge cell */}
-                                    <td className="categoria-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '120px', height: '40px' }}>
+                                    <td className="categoria-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '85px', height: '40px' }}>
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px' }}>
                                         <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[9px] font-semibold border ${roleBadgeColor(p.roleCategory || p.role)}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                           <span className="pdf-inner-text">{p.roleCategory || p.role}</span>
@@ -3027,7 +3030,7 @@ function EscalaControl() {
                                       </div>
                                     </td>
                                     {/* COREN cell */}
-                                    <td className="coren-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '100px', height: '40px' }}>
+                                    <td className="coren-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '75px', height: '40px' }}>
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
                                         <span className="pdf-content-shift">{p.coren || '—'}</span>
                                       </div>

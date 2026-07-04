@@ -50,7 +50,7 @@ export default function Dashboard() {
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['schedules'],
-    queryFn: () => db.entities.ScheduleEntry.list('-created_date', 200),
+    queryFn: () => db.entities.ScheduleEntry.filter({ month: 6, year: 2026 }),
   });
 
   const { data: certificates = [] } = useQuery({
