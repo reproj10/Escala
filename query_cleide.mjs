@@ -6,13 +6,12 @@ const supabase = createClient(
 );
 
 async function run() {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('*')
-    .ilike('name', '%Cleide%');
-
-  console.log('Result:', data);
-  if (error) console.log('Error:', error);
+  const scheds = await supabase.from('schedule_entries')
+    .select('employee_name, days')
+    .eq('month', 7)
+    .eq('year', 2026)
+    .eq('shift_type', 'noturno_a');
+  console.log('Schedules 7/2026 Noturno A:', JSON.stringify(scheds.data, null, 2));
 }
 
 run();

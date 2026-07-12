@@ -14,7 +14,7 @@ const DEFAULT_CODES = [
   { code: 'AU', label: 'Ausência / Falta', type: 'off-duty', color: 'text-red-600', bgColor: 'bg-red-500/10' },
   { code: 'AT', label: 'Atestado Médico', type: 'off-duty', color: 'text-amber-600', bgColor: 'bg-amber-500/10' },
   { code: 'LM', label: 'Licença Maternidade/Médica', type: 'off-duty', color: 'text-purple-600', bgColor: 'bg-purple-500/10' },
-  { code: 'V', label: 'Férias', type: 'off-duty', color: 'text-yellow-600', bgColor: 'bg-yellow-500/10' },
+  { code: 'FER', label: 'Férias', type: 'off-duty', color: 'text-yellow-600', bgColor: 'bg-yellow-500/10' },
   { code: 'TP', label: 'Troca de Plantão', type: 'duty', color: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
   { code: 'FI', label: 'Falta Injustificada', type: 'off-duty', color: 'text-rose-600', bgColor: 'bg-rose-500/10' },
 ];
@@ -27,10 +27,10 @@ export function useScaleSettings() {
   useEffect(() => {
     // Carregar configurações salvas no LocalStorage
     try {
-      const savedLimits = localStorage.getItem('escala_limits');
+      const savedLimits = localStorage.getItem('escala_limits_v2');
       if (savedLimits) setLimits(JSON.parse(savedLimits));
 
-      const savedCodes = localStorage.getItem('escala_codes');
+      const savedCodes = localStorage.getItem('escala_codes_v3');
       if (savedCodes) setCodes(JSON.parse(savedCodes));
     } catch (err) {
       console.error("Erro ao carregar as configurações da escala", err);
@@ -40,12 +40,12 @@ export function useScaleSettings() {
 
   const updateLimits = (newLimits) => {
     setLimits(newLimits);
-    localStorage.setItem('escala_limits', JSON.stringify(newLimits));
+    localStorage.setItem('escala_limits_v2', JSON.stringify(newLimits));
   };
 
   const updateCodes = (newCodes) => {
     setCodes(newCodes);
-    localStorage.setItem('escala_codes', JSON.stringify(newCodes));
+    localStorage.setItem('escala_codes_v3', JSON.stringify(newCodes));
   };
 
   const resetToDefault = () => {

@@ -135,7 +135,7 @@ const initialShifts: ShiftGroup[] = [
   },
   {
     id: "impar_diurno",
-    name: "Ímpar Diurno",
+    name: "Diurno A",
     timing: "07:00 às 19:00 (Dias Ímpares)",
     type: "ímpar",
     period: "diurno",
@@ -152,7 +152,7 @@ const initialShifts: ShiftGroup[] = [
   },
   {
     id: "impar_noturno",
-    name: "Ímpar Noturno",
+    name: "Noturno A",
     timing: "19:00 às 07:00 (Dias Ímpares)",
     type: "ímpar",
     period: "noturno",
@@ -168,7 +168,7 @@ const initialShifts: ShiftGroup[] = [
   },
   {
     id: "par_diurno",
-    name: "Par Diurno",
+    name: "Diurno B",
     timing: "07:00 às 19:00 (Dias Pares)",
     type: "par",
     period: "diurno",
@@ -184,7 +184,7 @@ const initialShifts: ShiftGroup[] = [
   },
   {
     id: "par_noturno",
-    name: "Par Noturno",
+    name: "Noturno B",
     timing: "19:00 às 07:00 (Dias Pares)",
     type: "par",
     period: "noturno",
@@ -209,7 +209,7 @@ const initialRequests: LeaveRequest[] = [
     memberName: "Téc. Aline Souza",
     memberRole: "technician",
     shiftId: "impar_diurno",
-    shiftName: "Ímpar Diurno",
+    shiftName: "Diurno A",
     requestedDay: 25,
     justification: "Folga adquirida pelo dia trabalhado nas eleições nacionais.",
     status: "pending",
@@ -223,7 +223,7 @@ const initialRequests: LeaveRequest[] = [
     memberName: "Enf. Gabriela Prado",
     memberRole: "nurse",
     shiftId: "par_diurno",
-    shiftName: "Par Diurno",
+    shiftName: "Diurno B",
     requestedDay: 26,
     justification: "Compensação de banco de horas (Banco de Horas de Plantão Extra).",
     status: "pending",
@@ -237,7 +237,7 @@ const initialRequests: LeaveRequest[] = [
     memberName: "Enf. Kátia Silveira",
     memberRole: "nurse",
     shiftId: "impar_noturno",
-    shiftName: "Ímpar Noturno",
+    shiftName: "Noturno A",
     requestedDay: 27,
     justification: "Direito de folga por doação de sangue anual (Atestado protocolado).",
     status: "pending",
@@ -287,9 +287,9 @@ function EscalaControl() {
   // Tabs: "overview" (Quadro & Escalas), "request-portal" (Profissional Escolhe Dias), "approval-desk" (Palavra Final da Gestão), "settings" (Configurações)
   const [activeTab, setActiveTab] = useState<"overview" | "request-portal" | "approval-desk" | "settings">("overview");
 
-  // Month and Year states
-  const [selectedMonth, setSelectedMonth] = useState<number>(6);
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  // Month and Year states — default to current month/year
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   const [shifts, setShifts] = useState<ShiftGroup[]>(initialShifts);
 
@@ -309,11 +309,17 @@ function EscalaControl() {
           if (dbShiftType === 'rt_lideranca') {
             shiftEmployees = employees.filter(e => e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || e.name.toLowerCase().includes('maria eduarda'));
           } else {
-            shiftEmployees = employees.filter(e => e.shift_type === dbShiftType && e.role !== 'RES.TECNICA' && e.role !== 'LIDERANÇA' && !e.name.toLowerCase().includes('maria eduarda'));
+            shiftEmployees = employees.filter(e => {
+              if (e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || e.name.toLowerCase().includes('maria eduarda')) return false;
+              
+              // O plantão é definido APENAS pelo cadastro global do colaborador,
+              // para evitar que ele "pule" de aba ao navegar para meses anteriores
+              return e.shift_type === dbShiftType;
+            });
           }
           
           const staff = shiftEmployees.map(emp => {
-            const sched = schedules.find(sch => sch.employee_name?.trim() === emp.name?.trim());
+            const sched = schedules.find(sch => sch.employee_id === emp.id || (sch.employee_name?.trim() === emp.name?.trim()));
             const isNurse = emp.role === 'ENFERMEIRA' || emp.role === 'ENFERMEIRO' || emp.role === 'RES.TECNICA' || emp.role === 'LIDERANÇA';
             
             return {
@@ -323,7 +329,8 @@ function EscalaControl() {
               roleCategory: emp.role,
               coren: emp.coren || '—',
               status: 'working',
-              days: sched ? sched.days : {}
+              days: sched ? sched.days : {},
+              absence_status: emp.absence_status || "none"
             };
           });
 
@@ -660,6 +667,7 @@ function EscalaControl() {
   const [editingName, setEditingName] = useState("");
   const [editingRole, setEditingRole] = useState<string>("technician");
   const [editingShiftId, setEditingShiftId] = useState("");
+  const [editingAbsenceStatus, setEditingAbsenceStatus] = useState("none");
   const [editingCellStatus, setEditingCellStatus] = useState<"default" | "duty" | "off-duty" | "leave-approved" | "leave-pending" | "FE" | "FA" | "BH" | "LM">("default");
   const [activeEditTab, setActiveEditTab] = useState("status");
 
@@ -696,6 +704,7 @@ function EscalaControl() {
     snapshotName: string;
     snapshotRole: "nurse" | "technician";
     snapshotShiftId: string;
+    snapshotAbsenceStatus: string;
   } | null>(null);
 
   // Popup vermelho de alerta de violação de regra
@@ -765,7 +774,8 @@ function EscalaControl() {
           coren: (member as any).coren || '—',
           shiftId: s.id,
           shiftName: s.name,
-          days: (member as any).days
+          days: (member as any).days,
+          absence_status: (member as any).absence_status
         });
       });
     });
@@ -885,8 +895,9 @@ function EscalaControl() {
   };
 
   // Resolve specific day duty/leave status
-  const getDayStatus = (p: { id: string; name: string; role: "nurse" | "technician"; shiftId: string; days?: Record<string, string> } | undefined, d: number) => {
+  const getDayStatus = (p: { id: string; name: string; role: "nurse" | "technician"; shiftId: string; days?: Record<string, string>; absence_status?: string } | undefined, d: number) => {
     if (!p || !p.id) return "off-duty";
+    if (p.absence_status && p.absence_status !== "none") return p.absence_status;
     // 1. Check leave requests
     const matchedReq = requests.find(r => r.memberId === p.id && r.requestedDay === d);
     if (matchedReq) {
@@ -960,7 +971,7 @@ function EscalaControl() {
           bgLight: "bg-amber-100 dark:bg-amber-950/45",
           border: "border-amber-500/20",
           text: "text-amber-700 dark:text-amber-400 font-extrabold",
-          label: "Ímpar Diurno",
+          label: "Diurno A",
           iconNode: <Sun className="w-3.5 h-3.5 inline-block mr-1 text-amber-500 fill-amber-500" />,
           badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
         };
@@ -971,7 +982,7 @@ function EscalaControl() {
           bgLight: "bg-blue-100 dark:bg-blue-950/45",
           border: "border-blue-500/20",
           text: "text-blue-700 dark:text-blue-450 font-extrabold",
-          label: "Par Diurno",
+          label: "Diurno B",
           iconNode: <Sun className="w-3.5 h-3.5 inline-block mr-1 text-blue-500 fill-blue-500" />,
           badge: "bg-blue-500/10 text-blue-600 dark:text-blue-450 border-blue-500/20"
         };
@@ -982,20 +993,20 @@ function EscalaControl() {
           bgLight: "bg-purple-100 dark:bg-purple-950/45",
           border: "border-purple-500/20",
           text: "text-purple-700 dark:text-purple-400 font-extrabold",
-          label: "Ímpar Noturno",
+          label: "Noturno A",
           iconNode: <MoonStar className="w-3.5 h-3.5 inline-block mr-1 text-purple-600 fill-purple-600" />,
           badge: "bg-purple-550/10 text-purple-650 dark:text-purple-400 border-purple-500/20"
         };
       case "par_noturno":
       case "noturno_b":
         return {
-          bg: "bg-indigo-650",
-          bgLight: "bg-indigo-100 dark:bg-indigo-950/45",
-          border: "border-indigo-600/20",
-          text: "text-indigo-650 dark:text-indigo-400 font-extrabold",
-          label: "Par Noturno",
-          iconNode: <MoonStar className="w-3.5 h-3.5 inline-block mr-1 text-indigo-600 fill-indigo-600" />,
-          badge: "bg-indigo-650/10 text-indigo-650 dark:text-indigo-400 border-indigo-600/20"
+          bg: "bg-pink-600",
+          bgLight: "bg-pink-100 dark:bg-pink-950/45",
+          border: "border-pink-600/20",
+          text: "text-pink-600 dark:text-pink-400 font-extrabold",
+          label: "Noturno B",
+          iconNode: <MoonStar className="w-3.5 h-3.5 inline-block mr-1 text-pink-600 fill-pink-600" />,
+          badge: "bg-pink-600/10 text-pink-600 dark:text-pink-400 border-pink-600/20"
         };
       case "rt_lideranca":
         return {
@@ -1098,6 +1109,8 @@ function EscalaControl() {
       return `BH_COMPENSACAO_BANCO_HORAS(Colaborador="${p.name}"; QtdDebito=12; Dia=${d}; SaldoRestante=24)`;
     } else if (dayStatus === "LM") {
       return `LICENÇA_MEDICA_ATESTADO_HOMOLOGADO(Cid10="M54.5"; Médico="Clinico Geral"; Colaborador="${p.name}"; Dia=${d})`;
+    } else if (dayStatus === "FER") {
+      return `FERIAS_GOZO_DIREITO(Colaborador="${p.name}"; Dia=${d})`;
     }
     return `SE(REGRA_SALA_ROTATIVA_12X36(Grupo="${p.shiftId}"; Dia=${d}); "P"; "-_FOLGA_ESCALA")`;
   };
@@ -1117,12 +1130,13 @@ function EscalaControl() {
     html += `.duty-purple { background-color: #a855f7; color: #ffffff; font-weight: bold; }`;
     html += `.duty-indigo { background-color: #4f46e5; color: #ffffff; font-weight: bold; }`;
     html += `.duty-green { background-color: #059669; color: #ffffff; font-weight: bold; }`;
-    html += `.leave-approved { background-color: #10b981; color: #ffffff; font-weight: bold; }`;
+    html += `.leave-approved { background-color: #eab308; color: #422006; font-weight: bold; }`;
     html += `.leave-pending { background-color: #f59e0b; color: #ffffff; font-weight: bold; }`;
     html += `.leave-fe { background-color: #ec4899; color: #ffffff; font-weight: bold; }`;
     html += `.leave-fa { background-color: #06b6d4; color: #ffffff; font-weight: bold; }`;
     html += `.leave-bh { background-color: #8b5cf6; color: #ffffff; font-weight: bold; }`;
     html += `.leave-lm { background-color: #b91c1c; color: #ffffff; font-weight: bold; }`;
+    html += `.leave-fer { background-color: #f97316; color: #ffffff; font-weight: bold; }`;
     html += `</style></head><body>`;
     
     // Add title block
@@ -1191,6 +1205,9 @@ function EscalaControl() {
         } else if (dayStatus === "LM") {
           cellText = "LM";
           cellClass = "class='leave-lm'";
+        } else if (dayStatus === "FER") {
+          cellText = "FER";
+          cellClass = "class='leave-fer'";
         }
         
         html += `<td ${cellClass}>${cellText}</td>`;
@@ -1217,6 +1234,13 @@ function EscalaControl() {
 
   // Handle cell selection and buffering in Global Scale View
   const handleCellClick = (p: { id: string; name: string; role: "nurse" | "technician"; shiftId: string; roleCategory?: string }, dayNum: number, currentStatus: string) => {
+    if (!isMonthUnlocked) {
+      toast.warning("A escala JÁ ESTÁ bloqueada. Se deseja editar, clique em Destravar Escala no topo.", {
+        icon: '🔒',
+      });
+      return;
+    }
+
     setEditingCell({
       memberId: p.id,
       memberName: p.name,
@@ -1229,6 +1253,7 @@ function EscalaControl() {
     setEditingName(p.name);
     setEditingRole(p.roleCategory || (p.role === "nurse" ? "ENFERMEIRA" : "TEC.ENF"));
     setEditingShiftId(p.shiftId);
+    setEditingAbsenceStatus(p.absence_status || "none");
     setActiveEditTab("status");
 
     // Load current status value
@@ -1254,6 +1279,8 @@ function EscalaControl() {
         setEditingCellStatus("BH");
       } else if (matchedOverride.status === "LM") {
         setEditingCellStatus("LM");
+      } else if (matchedOverride.status === "FER") {
+        setEditingCellStatus("FER");
       } else {
         setEditingCellStatus("default");
       }
@@ -1266,7 +1293,7 @@ function EscalaControl() {
   // Retorna { ok: true } se a mudança é permitida, ou { ok: false, msg } com a violação.
   const validateCellChange = (memberId: string, memberName: string, memberRole: string, shiftId: string, day: number, newStatus: string) => {
     // Status de ausência que contam para os limites de folga por dia
-    const ABSENCE_STATUSES = ['F', 'FE', 'FA', 'AU', 'AT', 'LM', 'BH', 'V', 'LTS', 'LS', 'FI', 'leave-approved', 'leave-pending', 'off-duty'];
+    const ABSENCE_STATUSES = ['F', 'FE', 'FA', 'AU', 'AT', 'LM', 'FER', 'BH', 'V', 'LTS', 'LS', 'FI', 'leave-approved', 'leave-pending', 'off-duty'];
     const TEC_ROLES = ['technician'];
     const ENF_ROLES = ['nurse'];
 
@@ -1326,12 +1353,12 @@ function EscalaControl() {
       }
     }
 
-    // ── REGRA 4: BH/LM só pode ser lançado em dia de Plantão (P) ──
-    if (newStatus === 'BH' || newStatus === 'LM') {
+    // ── REGRA 4: BH/LM/FER só pode ser lançado em dia de Plantão (P) ──
+    if (newStatus === 'BH' || newStatus === 'LM' || newStatus === 'FER') {
       const currentSelf = allProfessionals.find(p => p.id === memberId);
       const currentDayStatus = getDayStatus(currentSelf, day);
       if (currentDayStatus !== 'duty') {
-        const label = newStatus === 'BH' ? 'Banco de Horas (BH)' : 'Licença Médica (LM)';
+        const label = newStatus === 'BH' ? 'Banco de Horas (BH)' : (newStatus === 'LM' ? 'Licença Médica (LM)' : 'Férias (FER)');
         return { ok: false, msg: `⚠️ ${label} só pode ser lançado em dia de Plantão (P).\nO dia ${day} não é Plantão para ${memberName}.` };
       }
     }
@@ -1397,8 +1424,19 @@ function EscalaControl() {
         snapshotName: editingName,
         snapshotRole: editingRole,
         snapshotShiftId: editingShiftId,
+      snapshotAbsenceStatus: editingAbsenceStatus,
       });
       return;
+    }
+
+    // Força o afastamento global se o usuário selecionou LM no dia,
+    // para garantir que toda a escala assuma o afastamento contínuo.
+    // Se voltar para 'default', limpa o afastamento global.
+    let autoAbsenceStatus = editingAbsenceStatus;
+    if (editingCellStatus === 'LM') {
+      autoAbsenceStatus = 'LM';
+    } else if (editingCellStatus === 'default' && editingAbsenceStatus === 'LM') {
+      autoAbsenceStatus = 'none';
     }
 
     // Guarda snapshot completo antes de fechar o dialog
@@ -1416,6 +1454,7 @@ function EscalaControl() {
       snapshotName: editingName,
       snapshotRole: editingRole as any,
       snapshotShiftId: editingShiftId,
+      snapshotAbsenceStatus: autoAbsenceStatus,
     };
     // Fecha o dialog de edição e abre o popup de confirmação
     setEditingCell(null);
@@ -1430,12 +1469,14 @@ function EscalaControl() {
     name: string;
     role: typeof editingRole;
     shiftId: string;
+    absenceStatus?: string;
   }) => {
     const cell = overrideData?.cell ?? editingCell;
     const status = overrideData?.status ?? editingCellStatus;
     const name = overrideData?.name ?? editingName;
     const role = overrideData?.role ?? editingRole;
     const shiftId = overrideData?.shiftId ?? editingShiftId;
+    const absenceStatus = overrideData?.absenceStatus ?? editingAbsenceStatus;
 
     if (!cell) return;
     // Aliases para manter o restante do código igual
@@ -1443,98 +1484,198 @@ function EscalaControl() {
     const day = cell.day;
     const memberName = cell.memberName;
 
+    // Detecta se o turno foi REALMENTE alterado pelo usuário
+    const shiftWasChanged = shiftId !== cell.shiftId;
+
     // 1. Update the database ScheduleEntry and invalidate cache
-    db.entities.ScheduleEntry.filter({ month: 6, year: 2026 }).then(schedules => {
-      const sched = schedules.find(s => s.employee_name?.trim() === memberName?.trim());
+    db.entities.ScheduleEntry.filter({ month: selectedMonth, year: selectedYear }).then(schedules => {
+      const sched = schedules.find(s => s.employee_id === memberId || (s.employee_name?.trim() === memberName?.trim()));
       if (sched) {
-        let newStatus = 'F';
-        if (status === 'duty') newStatus = 'P';
-        else if (status === 'leave-approved' || status === 'leave-toggled') newStatus = 'F';
-        else if (status === 'FE') newStatus = 'FE';
-        else if (status === 'FA') newStatus = 'FA';
-        else if (status === 'BH') newStatus = 'BH';
-        else if (status === 'LM') newStatus = 'LM';
-        
-        const updatedDays = { ...sched.days, [String(day)]: newStatus };
-        db.entities.ScheduleEntry.update(sched.id, { days: updatedDays }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['schedules'] });
-          window.dispatchEvent(new Event('escala-db-updated'));
-        });
+        const updatePayload: Record<string, any> = {};
+
+        // Só atualiza o dia se o status NÃO for 'default' (padrão 12x36)
+        if (status !== 'default') {
+          let newStatus = 'F';
+          if (status === 'duty') newStatus = 'P';
+          else if (status === 'leave-approved' || status === 'leave-toggled') newStatus = 'F';
+          else if (status === 'FE') newStatus = 'FE';
+          else if (status === 'FA') newStatus = 'FA';
+          else if (status === 'BH') newStatus = 'BH';
+          else if (status === 'LM') newStatus = 'LM';
+          updatePayload.days = { ...sched.days, [String(day)]: newStatus };
+        }
+
+        // Só atualiza shift_type se o turno foi REALMENTE mudado pelo usuário
+        if (shiftWasChanged) {
+          const dbShiftType = shiftId === 'impar_diurno' ? 'diurno_a' :
+                              shiftId === 'par_diurno' ? 'diurno_b' :
+                              shiftId === 'impar_noturno' ? 'noturno_a' :
+                              shiftId === 'par_noturno' ? 'noturno_b' : sched.shift_type;
+          updatePayload.shift_type = dbShiftType;
+          
+          // Regenera a escala de dias copiando o padrão de outro colaborador do turno de destino
+          const templateSched = schedules.find(s => 
+            s.shift_type === dbShiftType && 
+            s.employee_id !== memberId && 
+            s.days && Object.keys(s.days).length > 0
+          );
+          if (templateSched && templateSched.days) {
+            updatePayload.days = { ...templateSched.days };
+          }
+
+          // PROPAGAR TRANSFERÊNCIA PARA TODOS OS MESES FUTUROS
+          // Busca TODOS os registros do colaborador em qualquer mês e atualiza os futuros
+          db.entities.ScheduleEntry.list().then(allSchedules => {
+            const futureEntries = allSchedules.filter(s => 
+              s.employee_id === memberId && 
+              (s.year > selectedYear || (s.year === selectedYear && s.month > selectedMonth))
+            );
+            
+            futureEntries.forEach(futureEntry => {
+              // Buscar template do turno de destino naquele mês
+              const futureMonthSchedules = allSchedules.filter(s => 
+                s.month === futureEntry.month && s.year === futureEntry.year
+              );
+              const futureTemplate = futureMonthSchedules.find(s => 
+                s.shift_type === dbShiftType && 
+                s.employee_id !== memberId && 
+                s.days && Object.keys(s.days).length > 0
+              );
+              
+              const futureUpdate: Record<string, any> = { shift_type: dbShiftType };
+              if (futureTemplate && futureTemplate.days) {
+                // Copia apenas o padrão P/F puro, sem sobreescrever folgas especiais
+                const pureDays: Record<string, string> = {};
+                for (const [k, v] of Object.entries(futureTemplate.days)) {
+                  pureDays[k] = (v === 'P') ? 'P' : 'F';
+                }
+                futureUpdate.days = pureDays;
+              }
+              
+              db.entities.ScheduleEntry.update(futureEntry.id, futureUpdate).then(() => {
+                console.log(`Transferência propagada: ${futureEntry.employee_name} mês ${futureEntry.month}/${futureEntry.year} → ${dbShiftType}`);
+              });
+            });
+          });
+        }
+
+        // Atualiza nome se foi alterado
+        if (name.trim() && name.trim() !== sched.employee_name?.trim()) {
+          updatePayload.employee_name = name.trim();
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          db.entities.ScheduleEntry.update(sched.id, updatePayload).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['schedules'] });
+            window.dispatchEvent(new Event('escala-db-updated'));
+          });
+        }
       }
     });
 
     // 2. Update the database Employee and invalidate cache
     db.entities.Employee.get(memberId).then(emp => {
       if (emp) {
-        const dbShiftType = shiftId === 'impar_diurno' ? 'diurno_a' :
-                            shiftId === 'par_diurno' ? 'diurno_b' :
-                            shiftId === 'impar_noturno' ? 'noturno_a' :
-                            shiftId === 'par_noturno' ? 'noturno_b' : emp.shift_type;
+        const updatePayload: Record<string, any> = {};
         
         const updatedRole = role === 'nurse' ? 'ENFERMEIRA' : (role === 'technician' ? 'TEC.ENF' : role);
+        
+        // Só atualiza nome se mudou
+        if (name.trim() && name.trim() !== emp.name?.trim()) {
+          updatePayload.name = name.trim();
+        }
+        // Só atualiza role se mudou
+        if (updatedRole !== emp.role) {
+          updatePayload.role = updatedRole;
+        }
+        // Só atualiza shift_type se o turno foi REALMENTE alterado
+        if (shiftWasChanged) {
+          const dbShiftType = shiftId === 'impar_diurno' ? 'diurno_a' :
+                              shiftId === 'par_diurno' ? 'diurno_b' :
+                              shiftId === 'impar_noturno' ? 'noturno_a' :
+                              shiftId === 'par_noturno' ? 'noturno_b' : emp.shift_type;
+          updatePayload.shift_type = dbShiftType;
+        }
 
-        db.entities.Employee.update(memberId, {
-          name: name.trim() || emp.name,
-          role: updatedRole,
-          shift_type: dbShiftType
-        }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['employees'] });
-          window.dispatchEvent(new Event('escala-db-updated'));
-        });
+        // Sempre salva absence_status (campo global de afastamento contínuo)
+        const currentAbsence = emp.absence_status || 'none';
+        if ((absenceStatus ?? 'none') !== currentAbsence) {
+          updatePayload.absence_status = absenceStatus ?? 'none';
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          db.entities.Employee.update(memberId, updatePayload).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['employees'] });
+            window.dispatchEvent(new Event('escala-db-updated'));
+          });
+        }
       }
     });
 
     // 3. Update Profile characteristics: Name, Role, and Shift Group in local state
-    setShifts(prevShifts => {
-      let targetMember: StaffMember | null = null;
-      
-      const filteredShifts = prevShifts.map(s => {
-        const hasMember = s.staff.some(m => m.id === memberId);
-        if (hasMember) {
-          const found = s.staff.find(m => m.id === memberId);
-          if (found) {
-            targetMember = { 
-              ...found, 
-              name: name.trim() || found.name,
-              role: role
-            };
-          }
-          // Remove from old if shift changed
-          if (s.id !== shiftId) {
-            return {
-              ...s,
-              staff: s.staff.filter(m => m.id !== memberId)
-            };
-          } else {
-            // Update inline properties
-            return {
-              ...s,
-              staff: s.staff.map(m => m.id === memberId ? { 
-                ...m, 
-                name: name.trim() || m.name, 
-                role: role 
-              } : m)
-            };
-          }
-        }
-        return s;
-      });
-
-      // Insert member into new shift category if group changed
-      if (targetMember && !filteredShifts.find(s => s.id === shiftId)?.staff.some(m => m.id === memberId)) {
-        return filteredShifts.map(s => {
-          if (s.id === shiftId) {
-            return {
-              ...s,
-              staff: [...s.staff, targetMember!]
-            };
+    if (shiftWasChanged) {
+      // Transferência de turno: remove do antigo, insere no novo
+      setShifts(prevShifts => {
+        let targetMember: StaffMember | null = null;
+        
+        const filteredShifts = prevShifts.map(s => {
+          const hasMember = s.staff.some(m => m.id === memberId);
+          if (hasMember) {
+            const found = s.staff.find(m => m.id === memberId);
+            if (found) {
+              targetMember = { 
+                ...found, 
+                name: name.trim() || found.name,
+                role: role
+              };
+            }
+            // Remove from old shift
+            if (s.id !== shiftId) {
+              return {
+                ...s,
+                staff: s.staff.filter(m => m.id !== memberId)
+              };
+            } else {
+              return {
+                ...s,
+                staff: s.staff.map(m => m.id === memberId ? { 
+                  ...m, 
+                  name: name.trim() || m.name, 
+                  role: role 
+                } : m)
+              };
+            }
           }
           return s;
         });
-      }
 
-      return filteredShifts;
-    });
+        // Insert member into new shift category
+        if (targetMember && !filteredShifts.find(s => s.id === shiftId)?.staff.some(m => m.id === memberId)) {
+          return filteredShifts.map(s => {
+            if (s.id === shiftId) {
+              return {
+                ...s,
+                staff: [...s.staff, targetMember!]
+              };
+            }
+            return s;
+          });
+        }
+
+        return filteredShifts;
+      });
+    } else {
+      // Apenas atualiza nome/role/absence_status in-place, SEM mover de turno
+      setShifts(prevShifts => prevShifts.map(s => ({
+        ...s,
+        staff: s.staff.map(m => m.id === memberId ? { 
+          ...m, 
+          name: name.trim() || m.name, 
+          role: role,
+          absence_status: absenceStatus ?? m.absence_status
+        } : m)
+      })));
+    }
 
     // 4. Clear pre-existing requests/overrides for this cell to refresh state
     setRequests(prev => prev.filter(r => !(r.memberId === memberId && r.requestedDay === day)));
@@ -2536,7 +2677,7 @@ function EscalaControl() {
                       >Diurno B</button>
                       <button 
                         onClick={() => setGlobalShiftFilter("par_noturno")} 
-                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "par_noturno" ? "font-bold bg-indigo-100 dark:bg-indigo-900/30 shadow-sm text-indigo-700 dark:text-indigo-400" : "font-medium text-muted-foreground hover:text-foreground")}
+                        className={cn("text-[11px] px-3 h-full rounded transition-all", globalShiftFilter === "par_noturno" ? "font-bold bg-pink-100 dark:bg-pink-900/30 shadow-sm text-pink-700 dark:text-pink-400" : "font-medium text-muted-foreground hover:text-foreground")}
                       >Noturno B</button>
                     </div>
                   </div>
@@ -2642,39 +2783,39 @@ function EscalaControl() {
                   <div className="flex flex-wrap gap-x-5 gap-y-3.5 items-center mt-1">
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-amber-500 text-white shadow-sm">P</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold">Ímpar Diurno</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold">Diurno A</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-purple-500 text-white shadow-sm">P</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold">Ímpar Noturno</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold">Noturno A</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-blue-500 text-white shadow-sm">P</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold">Par Diurno</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold">Diurno B</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-indigo-650 text-white shadow-sm">P</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold">Par Noturno</span>
+                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-pink-600 text-white shadow-sm">P</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold">Noturno B</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-emerald-600 text-white shadow-sm">P</span>
                       <span className="text-muted-foreground text-[11px] font-semibold">Administrativo</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-emerald-500 text-white shadow-sm">F</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold text-emerald-650 dark:text-emerald-400">Folga Deferida</span>
+                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-yellow-500 text-yellow-950 shadow-sm">F</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold text-yellow-700 dark:text-yellow-400">Folga Deferida</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg font-black bg-amber-500 text-white shadow-sm">?</span>
                       <span className="text-muted-foreground text-[11px] font-semibold text-amber-600 dark:text-amber-400">Folga Sob Análise</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-pink-600 text-white shadow-sm">FE</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold text-pink-700 dark:text-pink-400" title="Folga Eleitoral">Folga Eleitoral</span>
+                      <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-teal-600 text-white shadow-sm">FE</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold text-teal-700 dark:text-teal-400" title="Folga Eleitoral">Folga Eleitoral</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-cyan-550 text-white shadow-sm">FA</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold text-cyan-650 dark:text-cyan-400" title="Folga Aniversário">Folga Aniversário</span>
+                      <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-orange-700 text-white shadow-sm">FA</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold text-orange-700 dark:text-orange-400" title="Folga Aniversário">Folga Aniversário</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-violet-600 text-white shadow-sm">BH</span>
@@ -2734,11 +2875,11 @@ function EscalaControl() {
                   </div>
                   {/* Noturno B */}
                   <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                    globalShiftFilter === "par_noturno" ? "bg-indigo-600 border-indigo-700 shadow-indigo-200 dark:shadow-indigo-900" : "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800"
+                    globalShiftFilter === "par_noturno" ? "bg-pink-600 border-pink-700 shadow-pink-200 dark:shadow-pink-900" : "bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800"
                   )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_noturno" ? "all" : "par_noturno")}>
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_noturno" ? "text-white" : "text-indigo-700 dark:text-indigo-400")}>Noturno B</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_noturno" ? "text-white" : "text-indigo-600 dark:text-indigo-300")}>{shiftCounts.par_noturno}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_noturno" ? "text-indigo-100" : "text-indigo-500 dark:text-indigo-500")}>colaboradores</span>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_noturno" ? "text-white" : "text-pink-700 dark:text-pink-400")}>Noturno B</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_noturno" ? "text-white" : "text-pink-600 dark:text-pink-300")}>{shiftCounts.par_noturno}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_noturno" ? "text-pink-100" : "text-pink-500 dark:text-pink-500")}>colaboradores</span>
                   </div>
                 </div>
 
@@ -2940,8 +3081,8 @@ function EscalaControl() {
                           (() => {
                             const STATUS_STYLES = {
                               duty:             { bg: 'bg-green-100 dark:bg-green-900/40',    text: 'text-green-700 dark:text-green-300',   border: 'border-green-300 dark:border-green-700' },
-                              'leave-approved': { bg: 'bg-gray-100 dark:bg-gray-700/40',     text: 'text-gray-650 dark:text-gray-300',     border: 'border-gray-300 dark:border-gray-600' },
-                              'leave-toggled':  { bg: 'bg-gray-100 dark:bg-gray-700/40',     text: 'text-gray-650 dark:text-gray-300',     border: 'border-gray-300 dark:border-gray-600' },
+                              'leave-approved': { bg: 'bg-yellow-100 dark:bg-yellow-900/40',   text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-600' },
+                              'leave-toggled':  { bg: 'bg-yellow-100 dark:bg-yellow-900/40',   text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-600' },
                               'leave-pending':  { bg: 'bg-amber-100 dark:bg-amber-900/40',   text: 'text-amber-700 dark:text-amber-300',   border: 'border-amber-300 dark:border-amber-700 animate-pulse' },
                               'off-duty':       { bg: 'bg-transparent',                       text: 'text-slate-350 dark:text-slate-700',   border: 'border-transparent' },
                               FE:  { bg: 'bg-teal-100 dark:bg-teal-900/40',    text: 'text-teal-700 dark:text-teal-300',     border: 'border-teal-300 dark:border-teal-700' },
@@ -3106,19 +3247,19 @@ function EscalaControl() {
                     <div className="flex flex-wrap gap-x-6 gap-y-3 items-center mt-1">
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#f59e0b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
-                        <span className="text-slate-800 text-[10px] font-semibold">Ímpar Diurno</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Diurno A</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#a855f7', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
-                        <span className="text-slate-800 text-[10px] font-semibold">Ímpar Noturno</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Noturno A</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#3b82f6', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
-                        <span className="text-slate-800 text-[10px] font-semibold">Par Diurno</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Diurno B</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#4f46e5', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
-                        <span className="text-slate-800 text-[10px] font-semibold">Par Noturno</span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Noturno B</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded font-black text-white" style={{ backgroundColor: '#059669', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">P</span></span>
@@ -3322,7 +3463,7 @@ function EscalaControl() {
                           className={cn(
                             "text-left p-2 rounded-lg border text-xs gap-3 flex items-center justify-between cursor-pointer transition-all",
                             editingCellStatus === "leave-approved"
-                              ? "border-emerald-600 bg-emerald-500/[0.04] font-extrabold shadow-sm"
+                              ? "border-yellow-500 bg-yellow-500/[0.04] font-extrabold shadow-sm"
                               : "border-transparent bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-105/30 text-muted-foreground"
                           )}
                         >
@@ -3330,7 +3471,7 @@ function EscalaControl() {
                             <span className="font-bold text-foreground">🟢 Folga de Direito Deferida (F)</span>
                             <span className="text-[9px] text-muted-foreground">Concede folga legal homologada formalmente pela RT Renata.</span>
                           </div>
-                          <Badge className="bg-emerald-600 text-white font-bold border-transparent text-[9px] uppercase">Deferido</Badge>
+                          <Badge className="bg-yellow-500 text-yellow-950 font-bold border-transparent text-[9px] uppercase">Deferido</Badge>
                         </button>
 
                         <button
@@ -3356,7 +3497,7 @@ function EscalaControl() {
                           className={cn(
                             "text-left p-2 rounded-lg border text-xs gap-3 flex items-center justify-between cursor-pointer transition-all",
                             editingCellStatus === "FE"
-                              ? "border-pink-500 bg-pink-500/[0.04] font-extrabold shadow-sm"
+                              ? "border-teal-500 bg-teal-500/[0.04] font-extrabold shadow-sm"
                               : "border-transparent bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-105/30 text-muted-foreground"
                           )}
                         >
@@ -3364,7 +3505,7 @@ function EscalaControl() {
                             <span className="font-bold text-foreground">🌸 Folga Eleitoral (FE)</span>
                             <span className="text-[9px] text-muted-foreground">Direito constitucional decorrente de trabalhos prestados à Justiça Eleitoral.</span>
                           </div>
-                          <Badge className="bg-pink-600 text-white font-bold border-transparent text-[9px]">FE</Badge>
+                          <Badge className="bg-teal-600 text-white font-bold border-transparent text-[9px]">FE</Badge>
                         </button>
 
                         <button
@@ -3373,7 +3514,7 @@ function EscalaControl() {
                           className={cn(
                             "text-left p-2 rounded-lg border text-xs gap-3 flex items-center justify-between cursor-pointer transition-all",
                             editingCellStatus === "FA"
-                              ? "border-cyan-500 bg-cyan-500/[0.04] font-extrabold shadow-sm"
+                              ? "border-orange-700 bg-orange-700/[0.04] font-extrabold shadow-sm"
                               : "border-transparent bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-105/30 text-muted-foreground"
                           )}
                         >
@@ -3381,7 +3522,7 @@ function EscalaControl() {
                             <span className="font-bold text-foreground">🎂 Folga Aniversário (FA)</span>
                             <span className="text-[9px] text-muted-foreground">Direito ao dia de descanso remunerado decorrente do aniversário de contrato/vida.</span>
                           </div>
-                          <Badge className="bg-cyan-550 text-white font-bold border-transparent text-[9px]">FA</Badge>
+                          <Badge className="bg-orange-700 text-white font-bold border-transparent text-[9px]">FA</Badge>
                         </button>
 
                         <button
@@ -3483,6 +3624,25 @@ function EscalaControl() {
                       </div>
                     </div>
 
+                    
+                    {/* 4. EDIT AFASTAMENTO GLOBAL */}
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase text-slate-500">Afastamento Contínuo (Global)</Label>
+                      <Select 
+                        value={editingAbsenceStatus} 
+                        onValueChange={(val) => setEditingAbsenceStatus(val)}
+                      >
+                        <SelectTrigger className="h-10 text-xs rounded-lg bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs">Nenhum (Escala Normal 12x36)</SelectItem>
+                          <SelectItem value="LM" className="text-xs">Licença Médica / Maternidade / INSS (LM)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+
                     <div className="text-[10px] text-muted-foreground bg-amber-500/5 p-2 rounded border border-amber-500/10 leading-tight">
                       ⚠️ <strong>Atenção ao alterar o Grupo de Escala:</strong> Esse profissional será realocado permanentemente para a nova rotatividade 12x36 do turno escolhido.
                     </div>
@@ -3552,6 +3712,7 @@ function EscalaControl() {
                     setEditingName(pendingConfirm.snapshotName);
                     setEditingRole(pendingConfirm.snapshotRole);
                     setEditingShiftId(pendingConfirm.snapshotShiftId);
+                    setEditingAbsenceStatus(pendingConfirm.snapshotAbsenceStatus);
                     setActiveEditTab("profile");
                     setPendingConfirm(null);
                   }}
@@ -3567,70 +3728,70 @@ function EscalaControl() {
                     <span className="text-[11px] font-bold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.memberName}</span>
                   </div>
                   <div className="flex items-center gap-6 border-t border-border/60 pt-1.5 text-[10px]">
-                    <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Cargo</span>
-                      <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.memberRole}</span>
-                    </div>
-                    <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Turno</span>
-                      <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.shiftName}</span>
-                    </div>
-                    <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-                      <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Dia</span>
-                      <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:scale-[1.05] origin-left">{pendingConfirm.day}</span>
-                    </div>
-                  </div>
-                </div>
+                     <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                       <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Cargo</span>
+                       <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.memberRole}</span>
+                     </div>
+                     <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                       <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Turno</span>
+                       <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:translate-x-0.5">{pendingConfirm.shiftName}</span>
+                     </div>
+                     <div className="group cursor-pointer p-1 -m-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                       <span className="text-[8px] uppercase tracking-wider text-muted-foreground block font-medium transition-colors group-hover:text-primary">Dia</span>
+                       <span className="font-semibold text-foreground inline-block transform transition-transform group-hover:scale-[1.05] origin-left">{pendingConfirm.day}</span>
+                     </div>
+                   </div>
+                 </div>
 
-                {/* Novo status ou Mensagem de Aviso */}
-                <div className="text-left pt-1">
-                  {pendingConfirm.type === 'warning' && pendingConfirm.warningMsg ? (
-                    <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap font-medium">
-                      {pendingConfirm.warningMsg}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Deseja confirmar a alteração para{' '}
-                      <strong className="text-foreground">{pendingConfirm.statusLabel}</strong>?
-                    </p>
-                  )}
-                </div>
-              </div>
+                 {/* Novo status ou Mensagem de Aviso */}
+                 <div className="text-left pt-1">
+                   {pendingConfirm.type === 'warning' && pendingConfirm.warningMsg ? (
+                     <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap font-medium">
+                       {pendingConfirm.warningMsg}
+                     </p>
+                   ) : (
+                     <p className="text-[11px] text-muted-foreground leading-relaxed">
+                       Deseja confirmar a alteração para{' '}
+                       <strong className="text-foreground">{pendingConfirm.statusLabel}</strong>?
+                     </p>
+                   )}
+                 </div>
+               </div>
 
-              {/* Botões */}
-              <div className="w-full flex gap-3 pt-1">
-                <button
-                  onClick={() => setPendingConfirm(null)}
-                  className="flex-1 bg-muted hover:bg-muted/80 text-muted-foreground font-semibold text-xs py-2 rounded-lg transition-all border border-border focus:outline-none"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    if (!pendingConfirm) return;
-                    // Chama saveCellEdits passando os dados do snapshot diretamente
-                    saveCellEdits({
-                      cell: pendingConfirm.snapshotCell,
-                      status: pendingConfirm.snapshotStatus,
-                      name: pendingConfirm.snapshotName,
-                      role: pendingConfirm.snapshotRole,
-                      shiftId: pendingConfirm.snapshotShiftId,
-                    });
-                    setPendingConfirm(null);
-                  }}
-                  className={`flex-1 font-semibold text-xs py-2 rounded-lg transition-all shadow-md focus:outline-none ${
-                    pendingConfirm.type === 'warning' 
-                      ? 'bg-amber-500 text-white hover:bg-amber-600' 
-                      : 'bg-primary text-primary-foreground hover:bg-primary/95'
-                  }`}
-                >
-                  Confirmar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+               {/* Botões */}
+               <div className="w-full flex gap-3 pt-1">
+                 <button
+                   onClick={() => setPendingConfirm(null)}
+                   className="flex-1 bg-muted hover:bg-muted/80 text-muted-foreground font-semibold text-xs py-2 rounded-lg transition-all border border-border focus:outline-none"
+                 >
+                   Cancelar
+                 </button>
+                 <button
+                   onClick={() => {
+                     if (!pendingConfirm) return;
+                     saveCellEdits({
+                       cell: pendingConfirm.snapshotCell,
+                       status: pendingConfirm.snapshotStatus,
+                       name: pendingConfirm.snapshotName,
+                       role: pendingConfirm.snapshotRole,
+                       shiftId: pendingConfirm.snapshotShiftId,
+                       absenceStatus: pendingConfirm.snapshotAbsenceStatus,
+                     });
+                     setPendingConfirm(null);
+                   }}
+                   className={`flex-1 font-semibold text-xs py-2 rounded-lg transition-all shadow-md focus:outline-none ${
+                     pendingConfirm.type === 'warning'
+                       ? 'bg-amber-500 text-white hover:bg-amber-600'
+                       : 'bg-primary text-primary-foreground hover:bg-primary/95'
+                   }`}
+                 >
+                   Confirmar
+                 </button>
+               </div>
+             </motion.div>
+           </div>
+         )}
+       </AnimatePresence>
 
       {/* POPUP VERMELHO DE ALERTA DE VIOLAÇÃO DE REGRA */}
       <AnimatePresence>
@@ -4325,8 +4486,8 @@ function EscalaControl() {
                                     return { 
                                       label: "F", 
                                       isDuty: false,
-                                      bgClass: "bg-emerald-500/[0.06] border-emerald-500/25 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/30 font-extrabold",
-                                      badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold"
+                                      bgClass: "bg-yellow-500/[0.06] border-yellow-500/25 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100/30 font-extrabold",
+                                      badgeClass: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-extrabold"
                                     };
                                   case "leave-pending":
                                     return { 
@@ -4339,15 +4500,15 @@ function EscalaControl() {
                                     return { 
                                       label: "FE", 
                                       isDuty: false,
-                                      bgClass: "bg-pink-500/[0.06] border-pink-500/25 text-pink-700 dark:text-pink-400 hover:bg-pink-100/30 font-bold",
-                                      badgeClass: "bg-pink-500/15 text-pink-600 dark:text-pink-400"
+                                      bgClass: "bg-teal-500/[0.06] border-teal-500/25 text-teal-700 dark:text-teal-400 hover:bg-teal-100/30 font-bold",
+                                      badgeClass: "bg-teal-500/15 text-teal-600 dark:text-teal-400"
                                     };
                                   case "FA":
                                     return { 
                                       label: "FA", 
                                       isDuty: false,
-                                      bgClass: "bg-cyan-500/[0.06] border-cyan-500/25 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-100/30 font-bold",
-                                      badgeClass: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400"
+                                      bgClass: "bg-orange-700/[0.06] border-orange-700/25 text-orange-700 dark:text-orange-400 hover:bg-orange-100/30 font-bold",
+                                      badgeClass: "bg-orange-700/15 text-orange-600 dark:text-orange-400"
                                     };
                                   case "BH":
                                     return { 
@@ -4424,25 +4585,28 @@ function EscalaControl() {
                                 return <strong className="text-blue-600 dark:text-blue-400 font-extrabold">PLANTÃO na sua escala 12x36 (Requer Folga)</strong>;
                               }
                               if (statusForDay === "leave-toggled") {
-                                return <strong className="text-emerald-600 font-extrabold">FOLGA GERAL CADASTRADA (Dispensado)</strong>;
+                                return <strong className="text-yellow-600 font-extrabold">FOLGA GERAL CADASTRADA (Dispensado)</strong>;
                               }
                               if (statusForDay === "leave-approved") {
-                                return <strong className="text-emerald-600 font-extrabold">FOLGA DE DIREITO DEFERIDA</strong>;
+                                return <strong className="text-yellow-600 font-extrabold">FOLGA DE DIREITO DEFERIDA</strong>;
                               }
                               if (statusForDay === "leave-pending") {
                                 return <strong className="text-amber-600 dark:text-amber-400 font-extrabold">SOLICITAÇÃO DE FOLGA EM ANÁLISE</strong>;
                               }
                               if (statusForDay === "FE") {
-                                return <strong className="text-pink-600 dark:text-pink-400 font-extrabold">FOLGA ELEITORAL (FE) REGISTRADA</strong>;
+                                return <strong className="text-teal-600 dark:text-teal-400 font-extrabold">FOLGA ELEITORAL (FE) REGISTRADA</strong>;
                               }
                               if (statusForDay === "FA") {
-                                return <strong className="text-cyan-600 dark:text-cyan-400 font-extrabold">FOLGA ANUAL / ATESTADO (FA) REGISTRADO</strong>;
+                                return <strong className="text-orange-600 dark:text-orange-400 font-extrabold">FOLGA ANUAL / ATESTADO (FA) REGISTRADO</strong>;
                               }
                               if (statusForDay === "BH") {
                                 return <strong className="text-purple-600 dark:text-purple-400 font-extrabold">COMPENSAÇÃO DE BANCO DE HORAS (BH) REGISTRADO</strong>;
                               }
                               if (statusForDay === "LM") {
                                 return <strong className="text-red-650 dark:text-red-400 font-extrabold">LICENÇA MÉDICA (LM) REGISTRADA</strong>;
+                              }
+                              if (statusForDay === "FER") {
+                                return <strong className="text-orange-600 dark:text-orange-400 font-extrabold">FÉRIAS (FER) REGISTRADAS</strong>;
                               }
                               return <strong className="text-slate-500 font-medium">FOLGA Regular já garantida na sua escala</strong>;
                             })()}

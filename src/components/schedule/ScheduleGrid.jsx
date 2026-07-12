@@ -14,7 +14,7 @@ const FALLBACK_STATUS_OPTIONS = [
   { value: 'AU',  label: 'AU — Ausência / Falta',                 bg: 'bg-red-100 dark:bg-red-900/40',      text: 'text-red-700 dark:text-red-300',       border: 'border-red-300 dark:border-red-700' },
   { value: 'AT',  label: 'AT — Atestado Médico',                  bg: 'bg-amber-100 dark:bg-amber-900/40',  text: 'text-amber-700 dark:text-amber-300',   border: 'border-amber-300 dark:border-amber-700' },
   { value: 'LM',  label: 'LM — Licença Maternidade/Médica',       bg: 'bg-purple-100 dark:bg-purple-900/40',text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
-  { value: 'V',   label: 'V — Férias',                            bg: 'bg-yellow-100 dark:bg-yellow-900/40',text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-700' },
+  { value: 'FER', label: 'FER — Férias',                          bg: 'bg-yellow-100 dark:bg-yellow-900/40',text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-700' },
   { value: 'LTS', label: 'LTS — Lic. Tratamento Saúde',           bg: 'bg-orange-100 dark:bg-orange-900/40',text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
   { value: 'LS',  label: 'LS — Licença Saúde',                    bg: 'bg-orange-100 dark:bg-orange-900/40',text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
   { value: 'FI',  label: 'FI — Falta Injustificada',              bg: 'bg-red-200 dark:bg-red-900/60',      text: 'text-red-800 dark:text-red-200',       border: 'border-red-400 dark:border-red-600' },
@@ -295,8 +295,21 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
       className="bg-card rounded-xl border border-border overflow-hidden h-full flex flex-col"
     >
 
-      <div className="overflow-auto flex-1">
-        <table className="w-full text-xs">
+      {/* Legenda de Status visível */}
+      <div className="flex flex-wrap items-center gap-3 mb-2 px-2 py-1.5 bg-muted/30 rounded-lg border border-border">
+        <span className="text-[10px] font-bold text-muted-foreground mr-1 uppercase">Legenda:</span>
+        {STATUS_OPTIONS.map(opt => (
+          <div key={opt.code || opt.value} className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center justify-center h-4 w-4 rounded text-[8px] font-bold border ${opt.bg || opt.bgColor} ${opt.text || opt.color} ${opt.border || ''}`}>
+              {opt.code || opt.value}
+            </span>
+            <span className="text-[9px] font-medium text-foreground">{opt.label.split(' — ')[1] || opt.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="w-full h-full overflow-x-auto relative" id="schedule-table-wrapper" ref={tableWrapperRef}>
+        <table className="w-max min-w-full border-collapse text-left" id="schedule-table">
           <thead>
             {/* Shift hours banner */}
             <tr className="bg-primary/10 border-b border-primary/20">
@@ -619,6 +632,29 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
           </div>
         )}
       </AnimatePresence>
+
+      {/* ── Legenda dos códigos ── */}
+      <div className="px-3 py-2.5 border-t border-border bg-muted/30 flex flex-wrap gap-x-3 gap-y-1.5">
+        <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground self-center mr-1">Legenda:</span>
+        {[
+          { code: 'P',   label: 'Plantão',           bg: 'bg-green-100 dark:bg-green-900/40',   txt: 'text-green-700 dark:text-green-300' },
+          { code: 'F',   label: 'Folga',              bg: 'bg-gray-100 dark:bg-gray-700/40',     txt: 'text-gray-600 dark:text-gray-300' },
+          { code: 'FE',  label: 'Folga Enferm.',      bg: 'bg-teal-100 dark:bg-teal-900/40',    txt: 'text-teal-700 dark:text-teal-300' },
+          { code: 'FA',  label: 'Folga Abonada',      bg: 'bg-sky-100 dark:bg-sky-900/40',      txt: 'text-sky-700 dark:text-sky-300' },
+          { code: 'AU',  label: 'Ausência',           bg: 'bg-red-100 dark:bg-red-900/40',      txt: 'text-red-700 dark:text-red-300' },
+          { code: 'AT',  label: 'Atestado',           bg: 'bg-amber-100 dark:bg-amber-900/40',  txt: 'text-amber-700 dark:text-amber-300' },
+          { code: 'LM',  label: 'Lic. Maternidade',   bg: 'bg-purple-100 dark:bg-purple-900/40',txt: 'text-purple-700 dark:text-purple-300' },
+          { code: 'FER', label: 'Férias',             bg: 'bg-yellow-100 dark:bg-yellow-900/40',txt: 'text-yellow-700 dark:text-yellow-300' },
+          { code: 'LTS', label: 'Lic. Tratamento',    bg: 'bg-orange-100 dark:bg-orange-900/40',txt: 'text-orange-700 dark:text-orange-300' },
+          { code: 'FI',  label: 'Falta Injustif.',    bg: 'bg-red-200 dark:bg-red-900/60',      txt: 'text-red-800 dark:text-red-200' },
+          { code: 'TP',  label: 'Troca Plantão',      bg: 'bg-sky-200 dark:bg-sky-900/60',      txt: 'text-sky-800 dark:text-sky-200' },
+        ].map(({ code, label, bg, txt }) => (
+          <div key={code} className="flex items-center gap-1">
+            <span className={`inline-flex items-center justify-center h-4 w-6 rounded text-[8px] font-bold ${bg} ${txt}`}>{code}</span>
+            <span className="text-[9px] text-muted-foreground">{label}</span>
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }

@@ -5,6 +5,7 @@ const tableMap = {
   Employee: 'employees',
   ScheduleEntry: 'schedule_entries',
   MedicalCertificate: 'medical_certificates',
+  Vacation: 'medical_certificates',
   AppConfig: 'app_config',
   AuditLog: 'audit_log',
 };
@@ -165,6 +166,7 @@ export const db = {
     Employee: createEntityMock('Employee'),
     ScheduleEntry: createEntityMock('ScheduleEntry'),
     MedicalCertificate: createEntityMock('MedicalCertificate'),
+    Vacation: createEntityMock('Vacation'),
     AppConfig: createEntityMock('AppConfig'),
     AuditLog: createEntityMock('AuditLog'),
   },

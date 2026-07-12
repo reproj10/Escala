@@ -21,10 +21,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 
 const typeLabels = { 
-  AT: 'Atestado Médico', 
-  LM: 'Licença Maternidade', 
-  LTS: 'Licença Tratamento Saúde', 
-  LS: 'Licença Saúde' 
+  FER_30: 'Férias', 
+  FER_20: 'Férias 20 dias', 
+  FER_PREMIO: 'Férias Premium'
 };
 
 const COLORS = ['hsl(173,58%,39%)', 'hsl(262,52%,47%)', 'hsl(199,89%,48%)', 'hsl(43,74%,66%)', 'hsl(0,72%,51%)'];
@@ -47,13 +46,13 @@ const calculateEndDate = (startDateStr, days) => {
   return `${ny}-${nm}-${nd}`;
 };
 
-// HELPER: Injeta automaticamente o atestado (LM) na escala do colaborador, preservando as Folgas Deferidas (F)
-const applyCertificateToSchedule = async (cert, employee) => {
-  if (!cert.start_date || !cert.end_date || !employee) return;
+// HELPER: Injeta automaticamente o férias (FER) na escala do colaborador, preservando as Folgas Deferidas (F)
+const applyCertificateToSchedule = async (vac, employee) => {
+  if (!vac.start_date || !vac.end_date || !employee) return;
   
   // Usar strings de data corretamente para evitar problemas de fuso horário
-  const start = new Date(cert.start_date + 'T00:00:00');
-  const end = new Date(cert.end_date + 'T23:59:59');
+  const start = new Date(vac.start_date + 'T00:00:00');
+  const end = new Date(vac.end_date + 'T23:59:59');
   
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
@@ -96,7 +95,7 @@ const applyCertificateToSchedule = async (cert, employee) => {
         const isFolgaDeferida = userReqs.some(r => String(r.requestedDay) === dStr);
         
         if (!isFolgaDeferida) {
-          updatedDays[dStr] = 'LM';
+          updatedDays[dStr] = 'FER';
           changed = true;
         }
       }
@@ -108,12 +107,12 @@ const applyCertificateToSchedule = async (cert, employee) => {
   }
 };
 
-// HELPER: Remove o atestado (LM) da escala e devolve para o padrão, preservando os dias não tocados.
-const revertCertificateFromSchedule = async (cert, employee) => {
-  if (!cert.start_date || !cert.end_date || !employee) return;
+// HELPER: Remove o férias (FER) da escala e devolve para o padrão, preservando os dias não tocados.
+const revertCertificateFromSchedule = async (vac, employee) => {
+  if (!vac.start_date || !vac.end_date || !employee) return;
   
-  const start = new Date(cert.start_date + 'T00:00:00');
-  const end = new Date(cert.end_date + 'T23:59:59');
+  const start = new Date(vac.start_date + 'T00:00:00');
+  const end = new Date(vac.end_date + 'T23:59:59');
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
   const monthsMap = {};
@@ -140,8 +139,8 @@ const revertCertificateFromSchedule = async (cert, employee) => {
       let changed = false;
       for (const d of days) {
         const dStr = String(d);
-        // Só remove se estiver marcado como LM
-        if (updatedDays[dStr] === 'LM') {
+        // Só remove se estiver marcado como FER
+        if (updatedDays[dStr] === 'FER') {
           delete updatedDays[dStr]; // Deletando a chave, o EscalaControl vai aplicar a regra padrão automaticamente
           changed = true;
         }
@@ -154,15 +153,15 @@ const revertCertificateFromSchedule = async (cert, employee) => {
   }
 };
 
-export default function Certificates() {
+export default function Vacations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeModal, setActiveModal] = useState(null); // 'total' | 'dias' | 'media' | 'afastados' | 'cid' | 'absent' | null
-  const [editingCert, setEditingCert] = useState(null); // MedicalCertificate | null
-  const [confirmAction, setConfirmAction] = useState(null); // { type: 'delete' | 'complete', cert: any } | null
+  const [activeModal, setActiveModal] = useState(null); // 'total' | 'dias' | 'media' | 'afastados' | 'aquisitivo' | 'absent' | null
+  const [editingVacation, setEditingVacation] = useState(null); // Vacation | null
+  const [confirmAction, setConfirmAction] = useState(null); // { type: 'delete' | 'complete', vac: any } | null
   
   const [empSearch, setEmpSearch] = useState('');
   const [empOpen, setEmpOpen] = useState(false);
@@ -172,20 +171,21 @@ export default function Certificates() {
   
   const [form, setForm] = useState({ 
     employee_name: '', 
-    type: 'AT', 
-    cid: '', 
+    type: 'FER_30', 
+    aquisitivo: '', 
     start_date: new Date().toISOString().split('T')[0], 
-    end_date: calculateEndDate(new Date().toISOString().split('T')[0], 3), 
-    days_count: 3, 
+    end_date: calculateEndDate(new Date().toISOString().split('T')[0], 30), 
+    days_count: 30, 
     notes: '' 
   });
 
-  const { data: certificates = [] } = useQuery({
-    queryKey: ['certificates'],
+  const { data: vacations = [] } = useQuery({
+    queryKey: ['vacations'],
     queryFn: async () => {
-      const list = await db.entities.MedicalCertificate.list('-created_date');
-      return list.filter(item => !item.type || !item.type.startsWith('FER'));
-    }
+      const list = await db.entities.MedicalCertificate.list('-start_date');
+      return list.filter(item => item.type && item.type.startsWith('FER'));
+    },
+    refetchInterval: 5000,
   });
 
   const { data: employees = [] } = useQuery({
@@ -193,14 +193,15 @@ export default function Certificates() {
     queryFn: () => db.entities.Employee.list(),
   });
 
-  const createCert = useMutation({
+  const createVacation = useMutation({
     mutationFn: async (data) => {
-      const { days_count, notes, type, ...payload } = data;
+      const { days_count, notes, type, aquisitivo, ...payload } = data;
       const days = parseInt(data.days_count || data.days || 0);
       const created = await db.entities.MedicalCertificate.create({
         ...payload,
+        type: type,
         days: days,
-        description: `[${typeLabels[type] || type || 'Atestado'}] ${notes || data.description || ''}`.trim(),
+        description: `[${typeLabels[type] || type || 'Férias'}]${aquisitivo ? ' Período: ' + aquisitivo : ''} ${notes || data.description || ''}`.trim(),
         created_date: new Date().toISOString()
       });
 
@@ -214,38 +215,39 @@ export default function Certificates() {
       return created;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['vacations'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
-      toast({ title: 'Atestado registrado e colaborador afastado!' });
+      toast({ title: 'Férias registrado e colaborador afastado!' });
       setShowForm(false);
       setForm({ 
         employee_name: '', 
-        type: 'AT', 
-        cid: '', 
+        type: 'FER_30', 
+        aquisitivo: '', 
         start_date: new Date().toISOString().split('T')[0], 
-        end_date: calculateEndDate(new Date().toISOString().split('T')[0], 3), 
-        days_count: 3, 
+        end_date: calculateEndDate(new Date().toISOString().split('T')[0], 30), 
+        days_count: 30, 
         notes: '' 
       });
     },
     onError: (err) => {
       toast({ 
-        title: 'Erro ao registrar atestado', 
+        title: 'Erro ao registrar férias', 
         description: err.message, 
         variant: 'destructive' 
       });
     }
   });
 
-  const updateCert = useMutation({
+  const updateVacation = useMutation({
     mutationFn: async (data) => {
-      const { days_count, notes, type, ...payload } = data;
+      const { days_count, notes, type, aquisitivo, ...payload } = data;
       const days = parseInt(data.days_count || data.days || 0);
       const updated = await db.entities.MedicalCertificate.update(data.id, {
         ...payload,
+        type: type,
         days: days,
-        description: `[${typeLabels[type] || type || 'Atestado'}] ${notes || data.description || ''}`.trim()
+        description: `[${typeLabels[type] || type || 'Férias'}]${aquisitivo ? ' Período: ' + aquisitivo : ''} ${notes || data.description || ''}`.trim()
       });
 
       // Find employee accent-insensitively
@@ -258,32 +260,32 @@ export default function Certificates() {
       return updated;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['vacations'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
-      toast({ title: 'Atestado atualizado com sucesso!' });
-      setEditingCert(null);
+      toast({ title: 'Férias atualizado com sucesso!' });
+      setEditingVacation(null);
     },
     onError: (err) => {
       toast({ 
-        title: 'Erro ao atualizar atestado', 
+        title: 'Erro ao atualizar férias', 
         description: err.message, 
         variant: 'destructive' 
       });
     }
   });
 
-  const deleteCert = useMutation({
+  const deleteVacation = useMutation({
     mutationFn: async (id) => {
-      // Find certificate loosely by ID comparison
-      const cert = certificates.find(c => c.id == id || c.id?.toString() === id?.toString());
-      if (cert) {
+      // Find vacificate loosely by ID comparison
+      const vac = vacations.find(c => c.id == id || c.id?.toString() === id?.toString());
+      if (vac) {
         // Find employee accent-insensitively
-        const normCertName = normalizeName(cert.employee_name);
+        const normCertName = normalizeName(vac.employee_name);
         const emp = employees.find(e => normalizeName(e.name) === normCertName);
         if (emp) {
           await db.entities.Employee.update(emp.id, { status: 'active' });
-          await revertCertificateFromSchedule(cert, emp);
+          await revertCertificateFromSchedule(vac, emp);
         }
       }
       
@@ -302,14 +304,14 @@ export default function Certificates() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['vacations'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
-      toast({ title: 'Atestado removido com sucesso!' });
+      toast({ title: 'Férias removido com sucesso!' });
     },
     onError: (err) => {
       toast({ 
-        title: 'Erro ao remover atestado', 
+        title: 'Erro ao remover férias', 
         description: err.message, 
         variant: 'destructive' 
       });
@@ -317,30 +319,30 @@ export default function Certificates() {
   });
 
   const completeCertEarly = useMutation({
-    mutationFn: async (cert) => {
+    mutationFn: async (vac) => {
       const todayStr = new Date().toISOString().split('T')[0];
       
-      await db.entities.MedicalCertificate.update(cert.id, {
+      await db.entities.MedicalCertificate.update(vac.id, {
         end_date: todayStr,
-        description: (cert.notes || cert.description || '') + ` [Retorno Antecipado em ${format(new Date(), 'dd/MM/yyyy')}]`
+        description: (vac.notes || vac.description || '') + ` [Retorno Antecipado em ${format(new Date(), 'dd/MM/yyyy')}]`
       });
 
       // Find employee accent-insensitively
-      const normCertName = normalizeName(cert.employee_name);
+      const normCertName = normalizeName(vac.employee_name);
       const emp = employees.find(e => normalizeName(e.name) === normCertName);
       if (emp) {
         await db.entities.Employee.update(emp.id, { status: 'active' });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['vacations'] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
       toast({ title: 'Afastamento encerrado e colaborador reativado!' });
     },
     onError: (err) => {
       toast({ 
-        title: 'Erro ao encerrar atestado', 
+        title: 'Erro ao encerrar férias', 
         description: err.message, 
         variant: 'destructive' 
       });
@@ -349,13 +351,13 @@ export default function Certificates() {
 
   // Calculate dynamic stats
   const totalDays = useMemo(() => {
-    return certificates.reduce((acc, cert) => acc + (parseInt(cert.days_count || cert.days || 0)), 0);
-  }, [certificates]);
+    return vacations.reduce((acc, vac) => acc + (parseInt(vac.days_count || vac.days || 0)), 0);
+  }, [vacations]);
 
   const mediaDays = useMemo(() => {
-    if (certificates.length === 0) return 0;
-    return (totalDays / certificates.length).toFixed(1);
-  }, [certificates, totalDays]);
+    if (vacations.length === 0) return 0;
+    return (totalDays / vacations.length).toFixed(1);
+  }, [vacations, totalDays]);
 
   const activeLeaves = useMemo(() => {
     return employees.filter(e => e.status === 'on_leave').length;
@@ -363,16 +365,16 @@ export default function Certificates() {
 
   // Frequent CID calculations
   const frequentCid = useMemo(() => {
-    if (certificates.length === 0) return 'Nenhum';
-    const cids = {};
-    certificates.forEach(c => {
-      if (c.cid) cids[c.cid] = (cids[c.cid] || 0) + 1;
+    if (vacations.length === 0) return 'Nenhum';
+    const aquisitivos = {};
+    vacations.forEach(c => {
+      if (c.aquisitivo) aquisitivos[c.aquisitivo] = (aquisitivos[c.aquisitivo] || 0) + 1;
     });
-    const sorted = Object.entries(cids).sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(aquisitivos).sort((a, b) => b[1] - a[1]);
     return sorted.length > 0 ? sorted[0][0] : 'Nenhum';
-  }, [certificates]);
+  }, [vacations]);
 
-  // Absenteísmo rate (estimated: certificate days / total scheduled month workdays)
+  // Absenteísmo rate (estimated: vacificate days / total scheduled month workdays)
   const absenteismoRate = useMemo(() => {
     if (employees.length === 0) return '0.0%';
     const totalMonthWorkdays = employees.length * 15; // 15 workdays on average per CLT/12x36 employee
@@ -382,48 +384,48 @@ export default function Certificates() {
   // Calculations for dynamic Recharts charts
   const roleAbsenceData = useMemo(() => {
     const dist = {};
-    certificates.forEach(cert => {
-      const emp = employees.find(e => normalizeName(e.name) === normalizeName(cert.employee_name));
+    vacations.forEach(vac => {
+      const emp = employees.find(e => normalizeName(e.name) === normalizeName(vac.employee_name));
       const role = emp ? emp.role : 'Outros';
-      const days = parseInt(cert.days_count || cert.days || 0);
+      const days = parseInt(vac.days_count || vac.days || 0);
       dist[role] = (dist[role] || 0) + days;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
-  }, [certificates, employees]);
+  }, [vacations, employees]);
 
-  const certTypeData = useMemo(() => {
+  const vacTypeData = useMemo(() => {
     const dist = {};
-    certificates.forEach(cert => {
-      const type = typeLabels[cert.type] || cert.type || 'Atestado';
+    vacations.forEach(vac => {
+      const type = typeLabels[vac.type] || vac.type || 'Férias';
       dist[type] = (dist[type] || 0) + 1;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
-  }, [certificates]);
+  }, [vacations]);
 
   // Filtered List
-  const filteredCertificates = useMemo(() => {
-    return certificates.filter(c => 
+  const filteredVacations = useMemo(() => {
+    return vacations.filter(c => 
       c.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.cid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.aquisitivo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.notes?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [certificates, searchQuery]);
+  }, [vacations, searchQuery]);
 
   const handleEditSubmit = (e) => {
     e.preventDefault();
-    if (!editingCert) return;
-    updateCert.mutate(editingCert);
+    if (!editingVacation) return;
+    updateVacation.mutate(editingVacation);
   };
 
-  // Helper to copy certificate details to clipboard
-  const handleCopy = (cert) => {
-    const daysVal = cert.days_count || cert.days || 0;
-    const text = `📋 *Atestado Médico / Licença - UPA Zilda Arns*\n` +
-                 `• Colaborador: ${cert.employee_name}\n` +
-                 `• Tipo: ${typeLabels[cert.type] || cert.type}\n` +
-                 `• CID-10: ${cert.cid || 'N/A'}\n` +
-                 `• Período: ${format(new Date(cert.start_date), 'dd/MM/yyyy')} a ${format(new Date(cert.end_date), 'dd/MM/yyyy')} (${daysVal} dias)\n` +
-                 `• Observações: ${cert.notes || cert.description || 'Nenhuma'}`;
+  // Helper to copy vacificate details to clipboard
+  const handleCopy = (vac) => {
+    const daysVal = vac.days_count || vac.days || 0;
+    const text = `📋 *Férias Médico / Licença - UPA Zilda Arns*\n` +
+                 `• Colaborador: ${vac.employee_name}\n` +
+                 `• Tipo: ${typeLabels[vac.type] || vac.type}\n` +
+                 `• Período Aquisitivo: ${vac.aquisitivo || 'N/A'}\n` +
+                 `• Período: ${format(new Date(vac.start_date), 'dd/MM/yyyy')} a ${format(new Date(vac.end_date), 'dd/MM/yyyy')} (${daysVal} dias)\n` +
+                 `• Observações: ${vac.notes || vac.description || 'Nenhuma'}`;
     
     navigator.clipboard.writeText(text);
     toast({ 
@@ -432,7 +434,7 @@ export default function Certificates() {
     });
   };
 
-  // Helper to trigger print of the certificates table
+  // Helper to trigger print of the vacations table
   const handlePrint = () => {
     window.print();
   };
@@ -467,12 +469,12 @@ export default function Certificates() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Atestados e Licenças</h1>
-          <p className="text-sm text-muted-foreground">Gerencie afastamentos, CID-10 e licenças médicas</p>
+          <h1 className="text-2xl font-bold">Férias Programadas</h1>
+          <p className="text-sm text-muted-foreground">Gerencie afastamentos, Período Aquisitivo e licenças médicas</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} size="sm" className="gap-2 bg-primary text-primary-foreground hover:bg-primary/95 shadow-sm">
           {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-          {showForm ? 'Cancelar' : 'Registrar Novo Atestado'}
+          {showForm ? 'Cancelar' : 'Registrar Novo Férias'}
         </Button>
       </motion.div>
 
@@ -481,7 +483,7 @@ export default function Certificates() {
         <StatCard 
           icon={FileHeart} 
           label="Total Ocorrências" 
-          value={certificates.length} 
+          value={vacations.length} 
           color="teal" 
           subtitle="Registros de Junho" 
           onClick={() => setActiveModal('total')}
@@ -491,7 +493,7 @@ export default function Certificates() {
           label="Média de Dias" 
           value={`${mediaDays} dias`} 
           color="purple" 
-          subtitle="Por atestado" 
+          subtitle="Por férias" 
           onClick={() => setActiveModal('media')}
         />
         <StatCard 
@@ -507,8 +509,8 @@ export default function Certificates() {
           label="CID mais Frequente" 
           value={frequentCid} 
           color="blue" 
-          subtitle="CID-10 dominante" 
-          onClick={() => setActiveModal('cid')}
+          subtitle="Período Aquisitivo dominante" 
+          onClick={() => setActiveModal('aquisitivo')}
         />
         <StatCard 
           icon={Percent} 
@@ -533,14 +535,14 @@ export default function Certificates() {
               <CardHeader className="pb-3 border-b border-border">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <HeartPulse className="h-4.5 w-4.5 text-primary animate-pulse" /> 
-                  Lançar Novo Atestado Médico / Licença
+                  Lançar Férias
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-5">
-                <form onSubmit={e => { e.preventDefault(); createCert.mutate(form); }} className="space-y-4">
+                <form onSubmit={e => { e.preventDefault(); createVacation.mutate(form); }} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1 relative">
-                      <Label className="text-[10px] uppercase font-bold tracking-wide">Colaborador</Label>
+                      <Label className="text-[10px] uppercase font-bold">Colaborador</Label>
                       <Input
                         required
                         placeholder="Pesquise ou selecione o colaborador..."
@@ -603,11 +605,23 @@ export default function Certificates() {
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-[10px] uppercase font-bold tracking-wide">Tipo de Afastamento</Label>
+                      <Label className="text-[10px] uppercase font-bold">Tipo de Férias</Label>
                       <select 
                         required
                         value={form.type} 
-                        onChange={e => setForm({ ...form, type: e.target.value })}
+                        onChange={e => {
+                          const newType = e.target.value;
+                          let newDays = form.days_count;
+                          if (newType === 'FER_30') newDays = 30;
+                          else if (newType === 'FER_20') newDays = 20;
+                          
+                          setForm({ 
+                            ...form, 
+                            type: newType, 
+                            days_count: newDays, 
+                            end_date: calculateEndDate(form.start_date, newDays) 
+                          });
+                        }}
                         className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -615,11 +629,11 @@ export default function Certificates() {
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-[10px] uppercase font-bold tracking-wide">CID-10 / Diagnóstico</Label>
+                      <Label className="text-[10px] uppercase font-bold">Período Aquisitivo</Label>
                       <Input 
-                        placeholder="Ex: M54.5" 
-                        value={form.cid || ''} 
-                        onChange={e => setForm({ ...form, cid: e.target.value })}
+                        placeholder="Ex: 2024/2025" 
+                        value={form.aquisitivo || ''} 
+                        onChange={e => setForm({ ...form, aquisitivo: e.target.value })}
                         className="h-9 text-xs" 
                       />
                     </div>
@@ -627,7 +641,7 @@ export default function Certificates() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[10px] uppercase font-bold tracking-wide">Dias de Afastamento</Label>
+                      <Label className="text-[10px] uppercase font-bold">Dias de Férias</Label>
                       <Input 
                         type="number" 
                         required
@@ -642,7 +656,7 @@ export default function Certificates() {
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-[10px] uppercase font-bold tracking-wide">Data Início</Label>
+                      <Label className="text-[10px] uppercase font-bold">Data Início</Label>
                       <Input 
                         type="date" 
                         required
@@ -656,7 +670,7 @@ export default function Certificates() {
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-[10px] uppercase font-bold tracking-wide">Data Fim</Label>
+                      <Label className="text-[10px] uppercase font-bold">Data Fim</Label>
                       <Input 
                         type="date" 
                         required
@@ -668,9 +682,9 @@ export default function Certificates() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wide">Observações Médicas / Justificativa</Label>
+                    <Label className="text-[10px] uppercase font-bold">Observações</Label>
                     <Textarea 
-                      placeholder="Descreva observações, nome do médico emissor ou detalhes adicionais..."
+                      placeholder="Descreva observações ou detalhes adicionais..."
                       value={form.notes} 
                       onChange={e => setForm({ ...form, notes: e.target.value })} 
                       rows={2} 
@@ -678,8 +692,8 @@ export default function Certificates() {
                     />
                   </div>
 
-                  <Button type="submit" disabled={createCert.isPending} className="w-full text-xs font-semibold h-9 bg-primary text-primary-foreground hover:bg-primary/95 transition-all">
-                    {createCert.isPending ? 'Registrando...' : 'Confirmar e Afastar Colaborador'}
+                  <Button type="submit" disabled={createVacation.isPending} className="w-full h-12 text-sm font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+                    {createVacation.isPending ? 'Registrando...' : 'Confirmar e Registrar Férias'}
                   </Button>
                 </form>
               </CardContent>
@@ -701,7 +715,7 @@ export default function Certificates() {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <input 
               type="text" 
-              placeholder="Pesquisar atestados por nome ou CID..." 
+              placeholder="Pesquisar férias por nome..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -722,14 +736,14 @@ export default function Certificates() {
             </Button>
             
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              {filteredCertificates.length} de {certificates.length} registros
+              {filteredVacations.length} de {vacations.length} registros
             </span>
           </div>
         </div>
 
         {/* Clean printable title, hidden on screen, visible only when printing */}
         <div className="hidden print:block border-b border-black pb-3 mb-4">
-          <h2 className="text-lg font-bold text-black">Relatório de Afastamentos e Licenças Médicas</h2>
+          <h2 className="text-lg font-bold text-black">Relatório de Férias e Afastamentos</h2>
           <p className="text-xs text-slate-600 mt-1">UPA Zilda Arns · Gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
         </div>
 
@@ -739,75 +753,71 @@ export default function Certificates() {
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Colaborador</TableHead>
                 <TableHead className="font-semibold">Tipo</TableHead>
-                <TableHead className="font-semibold">CID-10</TableHead>
+                <TableHead className="font-semibold">Período Aquisitivo</TableHead>
                 <TableHead className="font-semibold">Período</TableHead>
                 <TableHead className="font-semibold">Dias</TableHead>
-                <TableHead className="font-semibold">Observações / Diagnóstico</TableHead>
+                <TableHead className="font-semibold">Observações</TableHead>
                 <TableHead className="font-semibold text-right pr-6 no-print">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCertificates.map(cert => {
-                const daysVal = cert.days_count || cert.days || 0;
+              {filteredVacations.map(vac => {
+                const daysVal = vac.days_count || vac.days || 0;
                 
                 return (
-                  <TableRow key={cert.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-semibold text-xs py-3">{cert.employee_name}</TableCell>
+                  <TableRow key={vac.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-semibold text-xs py-3">{vac.employee_name}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[9px] font-semibold border-muted-foreground/30">
-                        {typeLabels[cert.type] || cert.type}
+                        {typeLabels[vac.type] || vac.type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs font-mono font-bold text-destructive">{cert.cid || '—'}</TableCell>
+                    <TableCell className="text-xs font-mono font-bold text-destructive">{vac.aquisitivo || '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {cert.start_date ? format(new Date(cert.start_date), 'dd/MM/yyyy') : '-'} a {cert.end_date ? format(new Date(cert.end_date), 'dd/MM/yyyy') : '-'}
+                      {vac.start_date ? format(new Date(vac.start_date), 'dd/MM/yyyy') : '-'} a {vac.end_date ? format(new Date(vac.end_date), 'dd/MM/yyyy') : '-'}
                     </TableCell>
                     <TableCell className="text-xs font-bold text-card-foreground">{daysVal} dias</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[240px] truncate print:max-w-none print:whitespace-normal" title={cert.notes || cert.description}>
-                      {cert.notes || cert.description || '—'}
+                    <TableCell className="text-xs text-muted-foreground max-w-[240px] truncate print:max-w-none print:whitespace-normal" title={vac.notes || vac.description}>
+                      {vac.notes || vac.description || '—'}
                     </TableCell>
                     <TableCell className="text-right pr-6 no-print">
                       <div className="flex gap-1 justify-end">
-                        {/* 1. Copy Ficha Details Action */}
                         <Button 
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                          onClick={() => handleCopy(cert)}
-                          title="Copiar resumo da ficha para WhatsApp/Email"
+                          onClick={() => handleCopy(vac)}
+                          title="Copiar resumo"
                         >
                           <Copy className="h-3.5 w-3.5 text-slate-500" />
                         </Button>
 
-                        {/* 2. Edit Action */}
                         <Button 
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
-                          onClick={() => setEditingCert({ ...cert })}
-                          title="Editar detalhes do atestado"
+                          onClick={() => setEditingVacation({ ...vac })}
+                          title="Editar detalhes"
                         >
                           <Pencil className="h-3.5 w-3.5 text-primary" />
                         </Button>
 
-                        {/* 3. Return Early Action */}
                         <Button 
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                          onClick={() => setConfirmAction({ type: 'complete', cert })}
-                          title="Encerrar afastamento / Retorno Antecipado"
+                          onClick={() => setConfirmAction({ type: 'complete', vac })}
+                          title="Encerrar / Retorno Antecipado"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
                         </Button>
 
-                        {/* 4. Delete Action */}
                         <Button 
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          onClick={() => setConfirmAction({ type: 'delete', cert })}
-                          title="Remover atestado"
+                          onClick={() => setConfirmAction({ type: 'delete', vac })}
+                          title="Remover"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
@@ -816,10 +826,10 @@ export default function Certificates() {
                   </TableRow>
                 );
               })}
-              {filteredCertificates.length === 0 && (
+              {filteredVacations.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-10">
-                    Nenhum atestado médico correspondente encontrado.
+                    Nenhuma férias correspondente encontrada.
                   </TableCell>
                 </TableRow>
               )}
@@ -857,10 +867,10 @@ export default function Certificates() {
 
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Principais Tipos de Ausência</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tipos de Ausência</CardTitle></CardHeader>
             <CardContent>
               <div className="h-60 flex flex-col justify-between">
-                {certTypeData.length === 0 ? (
+                {vacTypeData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-xs text-muted-foreground">Sem dados suficientes para exibição.</div>
                 ) : (
                   <>
@@ -868,7 +878,7 @@ export default function Certificates() {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie 
-                            data={certTypeData} 
+                            data={vacTypeData} 
                             cx="50%" 
                             cy="50%" 
                             innerRadius={45} 
@@ -877,14 +887,14 @@ export default function Certificates() {
                             dataKey="value" 
                             animationDuration={1500}
                           >
-                            {certTypeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                            {vacTypeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                           </Pie>
                           <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="flex flex-wrap justify-center gap-3">
-                      {certTypeData.map((item, i) => (
+                      {vacTypeData.map((item, i) => (
                         <div key={item.name} className="flex items-center gap-1">
                           <div className="h-2 w-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
                           <span className="text-[10px] text-muted-foreground">{item.name} ({item.value})</span>
@@ -899,15 +909,15 @@ export default function Certificates() {
         </motion.div>
       </div>
 
-      {/* 5. Edit Medical Certificate Modal Overlay */}
+      {/* 5. Edit Modal Overlay */}
       <AnimatePresence>
-        {editingCert && (
+        {editingVacation && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setEditingCert(null)}
+              onClick={() => setEditingVacation(null)}
               className="absolute inset-0 bg-background/80 backdrop-blur-sm"
             />
 
@@ -920,10 +930,10 @@ export default function Certificates() {
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
                 <div className="flex items-center gap-2">
                   <Pencil className="h-4.5 w-4.5 text-primary" />
-                  <h2 className="text-sm font-bold text-card-foreground">Editar Detalhes do Atestado</h2>
+                  <h2 className="text-sm font-bold text-card-foreground">Editar Férias</h2>
                 </div>
                 <button 
-                  onClick={() => setEditingCert(null)} 
+                  onClick={() => setEditingVacation(null)} 
                   className="rounded-full p-1.5 text-muted-foreground hover:bg-muted transition-colors"
                 >
                   <X className="h-4 w-4" />
@@ -933,15 +943,27 @@ export default function Certificates() {
               <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
                 <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
                   <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Colaborador</span>
-                  <p className="text-xs font-bold text-card-foreground mt-0.5">{editingCert.employee_name}</p>
+                  <p className="text-xs font-bold text-card-foreground mt-0.5">{editingVacation.employee_name}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wide">Tipo de Afastamento</Label>
+                    <Label className="text-[10px] uppercase font-bold">Tipo de Afastamento</Label>
                     <select 
-                      value={editingCert.type} 
-                      onChange={e => setEditingCert({ ...editingCert, type: e.target.value })}
+                      value={editingVacation.type} 
+                      onChange={e => {
+                        const newType = e.target.value;
+                        let newDays = editingVacation.days;
+                        if (newType === 'FER_30') newDays = 30;
+                        else if (newType === 'FER_20') newDays = 20;
+                        
+                        setEditingVacation({ 
+                          ...editingVacation, 
+                          type: newType,
+                          days: newDays,
+                          end_date: calculateEndDate(editingVacation.start_date, newDays)
+                        });
+                      }}
                       className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -949,11 +971,11 @@ export default function Certificates() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wide">CID-10</Label>
+                    <Label className="text-[10px] uppercase font-bold">Período Aquisitivo</Label>
                     <Input 
-                      placeholder="Ex: M54.5" 
-                      value={editingCert.cid || ''} 
-                      onChange={e => setEditingCert({ ...editingCert, cid: e.target.value })}
+                      placeholder="Ex: 2024/2025" 
+                      value={editingVacation.aquisitivo || ''} 
+                      onChange={e => setEditingVacation({ ...editingVacation, aquisitivo: e.target.value })}
                       className="h-9 text-xs" 
                     />
                   </div>
@@ -961,15 +983,15 @@ export default function Certificates() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wide">Dias</Label>
+                    <Label className="text-[10px] uppercase font-bold">Dias</Label>
                     <Input 
                       type="number" 
                       required
                       min="1"
-                      value={editingCert.days_count || editingCert.days || ''} 
+                      value={editingVacation.days_count || editingVacation.days || ''} 
                       onChange={e => {
                         const days = parseInt(e.target.value) || 0;
-                        setEditingCert({ ...editingCert, days_count: days, days: days, end_date: calculateEndDate(editingCert.start_date, days) });
+                        setEditingVacation({ ...editingVacation, days_count: days, days: days, end_date: calculateEndDate(editingVacation.start_date, days) });
                       }}
                       className="h-9 text-xs" 
                     />
@@ -980,11 +1002,11 @@ export default function Certificates() {
                     <Input 
                       type="date" 
                       required
-                      value={editingCert.start_date} 
+                      value={editingVacation.start_date} 
                       onChange={e => {
                         const start = e.target.value;
-                        const days = editingCert.days_count || editingCert.days || 0;
-                        setEditingCert({ ...editingCert, start_date: start, end_date: calculateEndDate(start, days) });
+                        const days = editingVacation.days_count || editingVacation.days || 0;
+                        setEditingVacation({ ...editingVacation, start_date: start, end_date: calculateEndDate(start, days) });
                       }}
                       className="h-9 text-xs" 
                     />
@@ -995,8 +1017,8 @@ export default function Certificates() {
                     <Input 
                       type="date" 
                       required
-                      value={editingCert.end_date} 
-                      onChange={e => setEditingCert({ ...editingCert, end_date: e.target.value })}
+                      value={editingVacation.end_date} 
+                      onChange={e => setEditingVacation({ ...editingVacation, end_date: e.target.value })}
                       className="h-9 text-xs" 
                     />
                   </div>
@@ -1005,8 +1027,8 @@ export default function Certificates() {
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-bold tracking-wide">Observações / Justificativa</Label>
                   <Textarea 
-                    value={editingCert.notes || editingCert.description || ''} 
-                    onChange={e => setEditingCert({ ...editingCert, notes: e.target.value, description: e.target.value })} 
+                    value={editingVacation.notes || editingVacation.description || ''} 
+                    onChange={e => setEditingVacation({ ...editingVacation, notes: e.target.value, description: e.target.value })} 
                     rows={3} 
                     className="text-xs resize-none"
                   />
@@ -1017,7 +1039,7 @@ export default function Certificates() {
                     type="button" 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setEditingCert(null)}
+                    onClick={() => setEditingVacation(null)}
                     className="text-xs h-9 px-4"
                   >
                     Cancelar
@@ -1025,10 +1047,10 @@ export default function Certificates() {
                   <Button 
                     type="submit" 
                     size="sm"
-                    disabled={updateCert.isPending}
+                    disabled={updateVacation.isPending}
                     className="text-xs h-9 px-4 bg-primary text-primary-foreground flex items-center gap-1.5 shadow-sm"
                   >
-                    {updateCert.isPending ? (
+                    {updateVacation.isPending ? (
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Save className="h-3.5 w-3.5" />
@@ -1072,12 +1094,12 @@ export default function Certificates() {
                 )}
                 <div>
                   <h3 className="text-sm font-bold text-card-foreground">
-                    {confirmAction.type === 'delete' ? 'Remover Atestado?' : 'Confirmar Retorno?'}
+                    {confirmAction.type === 'delete' ? 'Remover Férias?' : 'Confirmar Retorno?'}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     {confirmAction.type === 'delete' 
-                      ? `Tem certeza que deseja excluir o atestado de ${confirmAction.cert.employee_name}?`
-                      : `Deseja registrar o retorno antecipado de ${confirmAction.cert.employee_name} ao trabalho hoje?`}
+                      ? `Tem vaceza que deseja excluir o férias de ${confirmAction.vac.employee_name}?`
+                      : `Deseja registrar o retorno antecipado de ${confirmAction.vac.employee_name} ao trabalho hoje?`}
                   </p>
                 </div>
               </div>
@@ -1098,9 +1120,9 @@ export default function Certificates() {
                   size="sm" 
                   onClick={() => {
                     if (confirmAction.type === 'delete') {
-                      deleteCert.mutate(confirmAction.cert.id);
+                      deleteVacation.mutate(confirmAction.vac.id);
                     } else {
-                      completeCertEarly.mutate(confirmAction.cert);
+                      completeCertEarly.mutate(confirmAction.vac);
                     }
                     setConfirmAction(null);
                   }}
@@ -1114,7 +1136,7 @@ export default function Certificates() {
         )}
       </AnimatePresence>
 
-      {/* 7. Atestados Glassmorphic Detail Modals */}
+      {/* 7. Férias Glassmorphic Detail Modals */}
       <AnimatePresence>
         {activeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print">
@@ -1138,14 +1160,14 @@ export default function Certificates() {
                   {activeModal === 'dias' && <Calendar className="h-5 w-5 text-destructive" />}
                   {activeModal === 'media' && <Award className="h-5 w-5 text-purple-500" />}
                   {activeModal === 'afastados' && <ShieldAlert className="h-5 w-5 text-warning" />}
-                  {activeModal === 'cid' && <Stethoscope className="h-5 w-5 text-accent" />}
+                  {activeModal === 'aquisitivo' && <Stethoscope className="h-5 w-5 text-accent" />}
                   {activeModal === 'absent' && <Percent className="h-5 w-5 text-amber-500" />}
                   <h2 className="text-sm font-bold text-card-foreground">
                     {activeModal === 'total' && 'Ocorrências por Tipo'}
                     {activeModal === 'dias' && 'Afastamento Acumulado por Pessoa'}
                     {activeModal === 'media' && 'Análise de Média de Dias'}
                     {activeModal === 'afastados' && 'Profissionais Afastados da Escala'}
-                    {activeModal === 'cid' && 'Distribuição de Diagnósticos (CID-10)'}
+                    {activeModal === 'aquisitivo' && 'Distribuição de Diagnósticos (Período Aquisitivo)'}
                     {activeModal === 'absent' && 'Impacto da Taxa de Absenteísmo'}
                   </h2>
                 </div>
@@ -1163,7 +1185,7 @@ export default function Certificates() {
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">Distribuição total das ocorrências ativas em Junho 2026:</p>
                     <div className="space-y-2">
-                      {certTypeData.map((item, i) => (
+                      {vacTypeData.map((item, i) => (
                         <div key={item.name} className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg border border-border">
                           <span className="text-xs font-medium">{item.name}</span>
                           <Badge variant="secondary" className="text-xs font-bold">{item.value} registro(s)</Badge>
@@ -1178,7 +1200,7 @@ export default function Certificates() {
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">Soma de dias perdidos acumulados por colaborador:</p>
                     <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                      {certificates.map(c => {
+                      {vacations.map(c => {
                         const d = c.days_count || c.days || 0;
                         return (
                           <div key={c.id} className="flex justify-between items-center p-3 hover:bg-muted/30">
@@ -1195,9 +1217,9 @@ export default function Certificates() {
                 {activeModal === 'media' && (
                   <div className="space-y-3 text-center py-4">
                     <Award className="h-10 w-10 text-purple-500 mx-auto" />
-                    <h3 className="text-lg font-bold text-purple-500">{mediaDays} dias por atestado</h3>
+                    <h3 className="text-lg font-bold text-purple-500">{mediaDays} dias por férias</h3>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                      Esta média indica a gravidade dos atestados médicos apresentados. Atestados acima de 15 dias consecutivos exigem encaminhamento da UPA Zilda Arns para perícia médica oficial no INSS.
+                      Esta média indica a gravidade dos fériass médicos apresentados. Férias acima de 15 dias consecutivos exigem encaminhamento da UPA Zilda Arns para perícia médica oficial no INSS.
                     </p>
                   </div>
                 )}
@@ -1224,14 +1246,14 @@ export default function Certificates() {
                 )}
 
                 {/* E. CID MAIS FREQUENTE */}
-                {activeModal === 'cid' && (
+                {activeModal === 'aquisitivo' && (
                   <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">Distribuição de diagnósticos médicos por código CID-10:</p>
+                    <p className="text-xs text-muted-foreground">Distribuição de diagnósticos médicos por código Período Aquisitivo:</p>
                     <div className="bg-muted/40 p-4 rounded-xl border border-border text-center space-y-2">
                       <Stethoscope className="h-8 w-8 text-accent mx-auto" />
                       <h4 className="text-lg font-bold text-accent">{frequentCid}</h4>
                       <p className="text-[10px] text-muted-foreground">
-                        Código dominante no período. O monitoramento epidemiológico do CID-10 ajuda a propor melhorias de ergonomia (como em casos de dorsalgia e lombalgia na equipe de enfermagem).
+                        Código dominante no período. O monitoramento epidemiológico do Período Aquisitivo ajuda a propor melhorias de ergonomia (como em casos de dorsalgia e lombalgia na equipe de enfermagem).
                       </p>
                     </div>
                   </div>

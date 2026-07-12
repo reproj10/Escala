@@ -39,13 +39,15 @@ create table if not exists medical_certificates (
   id text primary key,
   employee_id text,
   employee_name text,
+  type text default 'AT',
   cid text,
   description text,
   start_date text,
   end_date text,
   days int,
   file_url text,
-  created_date timestamptz default now()
+  created_date timestamptz default now(),
+  updated_date timestamptz default now()
 );
 
 -- Tabela de configurações

@@ -11,7 +11,8 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
-  Activity
+  Activity,
+  Sun
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
@@ -21,6 +22,7 @@ const menuItems = [
   { path: '/pesquisar', icon: Search, label: 'Pesquisar' },
   { path: '/gerenciamento', icon: Users, label: 'Gerenciamento' },
   { path: '/atestados', icon: FileHeart, label: 'Atestados' },
+  { path: '/ferias', icon: Sun, label: 'Férias' },
   { path: '/relatorios', icon: BarChart3, label: 'Relatórios' },
   { path: '/escala-control', icon: CalendarDays, label: 'Escala Control' },
 ];

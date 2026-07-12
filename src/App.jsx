@@ -15,6 +15,7 @@ import Management from '@/pages/Management';
 import Certificates from '@/pages/Certificates';
 import Reports from '@/pages/Reports';
 import EscalaControl from '@/pages/EscalaControl';
+import Vacations from '@/pages/Vacations';
 
 const AuthenticatedApp = () => {
   return (
@@ -25,6 +26,7 @@ const AuthenticatedApp = () => {
         <Route path="/pesquisar" element={<SearchPage />} />
         <Route path="/gerenciamento" element={<Management />} />
         <Route path="/atestados" element={<Certificates />} />
+        <Route path="/ferias" element={<Vacations />} />
         <Route path="/relatorios" element={<Reports />} />
         <Route path="/escala-control" element={<EscalaControl />} />
       </Route>
