@@ -505,7 +505,11 @@ function EscalaControl() {
       // Apply robust inline overrides to wrap the table exactly
       // html2canvas crashes with max-content, so we calculate exact pixel width
       const tableEl = input.querySelector("table");
-      const exactWidth = tableEl ? tableEl.scrollWidth + 32 : 1800; // 32px for padding
+      const baseWidth = tableEl ? tableEl.scrollWidth + 32 : 1800;
+      // Garante uma largura bem horizontal (aspect ratio > 1.45) para preencher a folha A4 e não sobrar bordas laterais
+      const approxHeight = input.scrollHeight || 1600;
+      const minWidthForA4 = approxHeight * 1.5;
+      const exactWidth = Math.max(baseWidth, minWidthForA4, 2600);
       
       input.style.setProperty("width", `${exactWidth}px`, "important");
       input.style.setProperty("min-width", `${exactWidth}px`, "important");
@@ -914,6 +918,7 @@ function EscalaControl() {
       if (matchedOverride.status === "FA") return "FA";
       if (matchedOverride.status === "BH") return "BH";
       if (matchedOverride.status === "LM") return "LM";
+      if (matchedOverride.status === "FER") return "FER";
     }
 
     // 3. If there are pre-parsed days from the Excel file, use them directly!
@@ -921,7 +926,7 @@ function EscalaControl() {
       const val = p.days[String(d)];
       if (val === 'P') return "duty";
       if (val === 'F') return "off-duty";
-      if (val === 'V') return "leave-approved"; // Férias
+      if (val === 'V' || val === 'FER') return "FER"; // Férias
       if (val === 'LM' || val === 'LTS' || val === 'LS' || val === 'AT' || val === 'LNR') return "LM"; // Licença Médica / Atestado
       if (val === 'FE') return "FE";
       if (val === 'FA') return "FA";
@@ -1349,7 +1354,7 @@ function EscalaControl() {
       const currentSelf = allProfessionals.find(p => p.id === memberId);
       const currentDayStatus = getDayStatus(currentSelf, day);
       if (currentDayStatus !== 'duty') {
-        return { ok: false, msg: `⚠️ ${newStatus === 'FE' ? 'Folga Eleitoral (FE)' : 'Folga Aniversário (FA)'} só pode substituir um dia de Plantão (P).\nO dia ${day} não é Plantão para ${memberName}.` };
+        return { ok: false, msg: `⚠️ ${newStatus === 'FE' ? 'Folga da Enfermagem (FE)' : 'Folga Abonada (FA)'} só pode substituir um dia de Plantão (P).\nO dia ${day} não é Plantão para ${memberName}.` };
       }
     }
 
@@ -1394,8 +1399,8 @@ function EscalaControl() {
       'off-duty': 'Forçar Folga de Revezamento (F)',
       'leave-approved': 'Folga de Direito Deferida (F)',
       'leave-pending': 'Folga Sob Análise (?)',
-      FE: 'Folga Eleitoral (FE)',
-      FA: 'Folga Aniversário (FA)',
+      FE: 'Folga da Enfermagem (FE)',
+      FA: 'Folga Abonada (FA)',
       BH: 'Compensação Banco de Horas (BH)',
       LM: 'Licença Médica / Atestado (LM)',
     };
@@ -2463,10 +2468,10 @@ function EscalaControl() {
                     text-align: center !important;
                   }
                   .generating-pdf th {
-                    height: 45px !important;
+                    height: 60px !important;
                   }
                   .generating-pdf td {
-                    height: 40px !important;
+                    height: 55px !important;
                   }
                   .generating-pdf td > div {
                     display: flex !important;
@@ -2811,11 +2816,11 @@ function EscalaControl() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-teal-600 text-white shadow-sm">FE</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold text-teal-700 dark:text-teal-400" title="Folga Eleitoral">Folga Eleitoral</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold text-teal-700 dark:text-teal-400" title="Folga da Enfermagem">Folga da Enfermagem</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-orange-700 text-white shadow-sm">FA</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold text-orange-700 dark:text-orange-400" title="Folga Aniversário">Folga Aniversário</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold text-orange-700 dark:text-orange-400" title="Folga Abonada">Folga Abonada</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 flex items-center justify-center text-[10px] rounded-lg font-black bg-violet-600 text-white shadow-sm">BH</span>
@@ -2826,8 +2831,8 @@ function EscalaControl() {
                       <span className="text-muted-foreground text-[11px] font-semibold text-red-700 dark:text-red-400" title="Licença Médica">Licença Médica</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 flex items-center justify-center text-[10.5px] rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 border font-extrabold">-</span>
-                      <span className="text-muted-foreground text-[11px] font-semibold font-medium">Folga de Escala</span>
+                      <span className="w-6 h-6 flex items-center justify-center text-[9px] rounded-lg font-black bg-yellow-500 text-white shadow-sm">FER</span>
+                      <span className="text-muted-foreground text-[11px] font-semibold text-yellow-600 dark:text-yellow-400" title="Férias">Férias</span>
                     </div>
                   </div>
                 </div>
@@ -3090,6 +3095,7 @@ function EscalaControl() {
                               BH:  { bg: 'bg-violet-100 dark:bg-violet-900/40',text: 'text-violet-750 dark:text-violet-300', border: 'border-violet-300 dark:border-violet-700' },
                               LM:  { bg: 'bg-purple-100 dark:bg-purple-900/40',text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
                               V:   { bg: 'bg-yellow-100 dark:bg-yellow-900/40',text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-700' },
+                              FER: { bg: 'bg-yellow-100 dark:bg-yellow-900/40',text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-700' },
                               LTS: { bg: 'bg-orange-100 dark:bg-orange-900/40',text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
                               LS:  { bg: 'bg-orange-100 dark:bg-orange-900/40',text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
                               FI:  { bg: 'bg-red-200 dark:bg-red-900/60',      text: 'text-red-850 dark:text-red-200',       border: 'border-red-450' },
@@ -3274,11 +3280,11 @@ function EscalaControl() {
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Sob Análise</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#db2777', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FE</span></span>
-                        <span className="text-slate-800 text-[10px] font-semibold">Folga Eleitoral</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#0d9488', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FE</span></span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Folga da Enfermagem</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#06b6d4', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FA</span></span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9.5px] rounded font-black text-white" style={{ backgroundColor: '#c2410c', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FA</span></span>
                         <span className="text-slate-800 text-[10px] font-semibold">Folga Abonada</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -3290,8 +3296,8 @@ function EscalaControl() {
                         <span className="text-slate-800 text-[10px] font-semibold">Licença Médica</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] rounded border font-extrabold" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#64748b', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">-</span></span>
-                        <span className="text-slate-800 text-[10px] font-semibold">Folga de Escala</span>
+                        <span className="w-5 h-5 flex items-center justify-center text-[9px] rounded font-black text-white" style={{ backgroundColor: '#eab308', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}><span className="pdf-inner-text">FER</span></span>
+                        <span className="text-slate-800 text-[10px] font-semibold">Férias</span>
                       </div>
                     </div>
                   </div>
@@ -3318,20 +3324,6 @@ function EscalaControl() {
                           </span>
                           <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
                             COREN-SP 484843
-                          </span>
-                        </div>
-                        
-                        {/* Maria Eduarda */}
-                        <div className="flex flex-col items-center gap-1.5 min-w-[280px]">
-                          <div className="w-full border-b border-black h-5" />
-                          <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-wider text-center">
-                            Maria Eduarda Spadini de Oliveira
-                          </span>
-                          <span className="text-[9.5px] font-bold text-slate-600 uppercase tracking-wide text-center">
-                            Liderança
-                          </span>
-                          <span className="text-[9px] font-mono font-bold text-slate-500 text-center">
-                            COREN-SP 635293
                           </span>
                         </div>
                       </div>
@@ -3502,8 +3494,8 @@ function EscalaControl() {
                           )}
                         >
                           <div className="flex flex-col">
-                            <span className="font-bold text-foreground">🌸 Folga Eleitoral (FE)</span>
-                            <span className="text-[9px] text-muted-foreground">Direito constitucional decorrente de trabalhos prestados à Justiça Eleitoral.</span>
+                            <span className="font-bold text-foreground">🌸 Folga da Enfermagem (FE)</span>
+                            <span className="text-[9px] text-muted-foreground">Direito concedido à equipe de enfermagem.</span>
                           </div>
                           <Badge className="bg-teal-600 text-white font-bold border-transparent text-[9px]">FE</Badge>
                         </button>
@@ -3519,8 +3511,8 @@ function EscalaControl() {
                           )}
                         >
                           <div className="flex flex-col">
-                            <span className="font-bold text-foreground">🎂 Folga Aniversário (FA)</span>
-                            <span className="text-[9px] text-muted-foreground">Direito ao dia de descanso remunerado decorrente do aniversário de contrato/vida.</span>
+                            <span className="font-bold text-foreground">🎂 Folga Abonada (FA)</span>
+                            <span className="text-[9px] text-muted-foreground">Dia de descanso abonado concedido pela gestão.</span>
                           </div>
                           <Badge className="bg-orange-700 text-white font-bold border-transparent text-[9px]">FA</Badge>
                         </button>
