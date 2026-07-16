@@ -7,10 +7,9 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Search as SearchIcon, User, Calendar, Clock, X, HeartPulse, ShieldCheck, Award, Users, Activity, FileText, UserX, Sun, History, Pencil, UserPlus, Lock, Eraser } from 'lucide-react';
-import { formatName, getCurrentMonthYearString } from '@/lib/utils';
-
+import { formatName, getCurrentMonthYearString, cn } from '@/lib/utils';
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusLabels = { active: 'Ativo', inactive: 'Inativo', on_leave: 'Afastado' };
 const statusColors = { active: 'bg-success/20 text-success', inactive: 'bg-muted text-muted-foreground', on_leave: 'bg-warning/20 text-warning' };
@@ -68,6 +67,18 @@ export default function SearchPage() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isFocused, setIsFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
+
+  const now = new Date();
+  const [selectedDay, setSelectedDay] = useState(now.getDate());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const daysArray = Array.from({ length: new Date(selectedYear, selectedMonth, 0).getDate() }, (_, i) => i + 1);
+  const isSelectedDayOdd = selectedDay % 2 !== 0;
+  
+  const getMonthName = (m) => {
+    const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    return months[m - 1] || "";
+  };
 
   const { data: employees = [] } = useQuery({
     queryKey: ['employees'],
@@ -139,6 +150,42 @@ export default function SearchPage() {
       return schedule && Object.values(schedule.days || {}).includes('V');
     }
 
+    // Filter by selected day on the calendar (if activeFilter is not overriding)
+    // Wait, the user said they use it as a way to search. Let's filter employees by the selected day's plantão (Odd/Even shift or explicit P in schedule)
+    // If the user wants to see who is on shift that day:
+    if (selectedDay) {
+      // If we have a schedule, check if day has 'P' or similar
+      const schedule = schedules.find(s => s.employee_name?.trim() === e.name?.trim());
+      if (schedule && schedule.days && schedule.days[String(selectedDay)]) {
+        const status = schedule.days[String(selectedDay)];
+        // If it's a day off or leave, we can still show them but maybe they want to see the team.
+        // Actually, let's just let it be, the calendar acts as a visual mirror if they want to click and see.
+        // If we strictly filter, we might hide people they are searching for. Let's filter only if query is empty.
+        if (!query && activeFilter === null) {
+          const shiftType = e.shift_type || '';
+          const isOddShift = shiftType.includes('impar');
+          const isEvenShift = shiftType.includes('par');
+          const isNight = shiftType.includes('noturno');
+          const isDay = shiftType.includes('diurno');
+          // Simple logic: if they have 'P' or their shift matches the odd/even day
+          const matchesShift = (isSelectedDayOdd && isOddShift) || (!isSelectedDayOdd && isEvenShift);
+          if (status !== 'P' && !matchesShift && status !== 'AT' && status !== 'LM' && status !== 'V') {
+            return false;
+          }
+        }
+      } else if (!query && activeFilter === null) {
+         // Fallback to odd/even shift rule
+         const shiftType = e.shift_type || '';
+         const isOddShift = shiftType.includes('impar') || shiftType === 'diurno_a' || shiftType === 'noturno_a';
+         const isEvenShift = shiftType.includes('par') || shiftType === 'diurno_b' || shiftType === 'noturno_b';
+         
+         const matchesShift = (isSelectedDayOdd && isOddShift) || (!isSelectedDayOdd && isEvenShift);
+         if (!matchesShift && e.role !== 'RES.TECNICA' && e.role !== 'LIDERANÇA') {
+           return false; // Hide if not their shift and not leadership
+         }
+      }
+    }
+
     return true;
   });
 
@@ -196,9 +243,9 @@ export default function SearchPage() {
         {/* Card 1: Total de Colaboradores (Remove filtros) */}
         <Card 
           onClick={() => setActiveFilter(null)}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-primary/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
+          className={`flex-shrink-0 w-[220px] lg:w-auto shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
             activeFilter === null 
-              ? 'border-primary ring-2 ring-primary/20 bg-primary/[0.03]' 
+              ? 'border-primary ring-2 ring-primary/20' 
               : 'border-border/60 hover:border-primary/30'
           }`}
         >
@@ -221,9 +268,9 @@ export default function SearchPage() {
         {/* Card 4: Atestados Médicos */}
         <Card 
           onClick={() => setActiveFilter(activeFilter === 'has_atestado' ? null : 'has_atestado')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-red-500/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
+          className={`flex-shrink-0 w-[220px] lg:w-auto shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
             activeFilter === 'has_atestado' 
-              ? 'border-red-500 ring-2 ring-red-500/20 bg-red-500/[0.03]' 
+              ? 'border-red-500 ring-2 ring-red-500/20' 
               : 'border-border/60 hover:border-red-500/30'
           }`}
         >
@@ -245,9 +292,9 @@ export default function SearchPage() {
         {/* Card 5: Colaboradores Afastados */}
         <Card 
           onClick={() => setActiveFilter(activeFilter === 'on_leave' ? null : 'on_leave')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-purple-500/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
+          className={`flex-shrink-0 w-[220px] lg:w-auto shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
             activeFilter === 'on_leave' 
-              ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-500/[0.03]' 
+              ? 'border-purple-500 ring-2 ring-purple-500/20' 
               : 'border-border/60 hover:border-purple-500/30'
           }`}
         >
@@ -269,9 +316,9 @@ export default function SearchPage() {
         {/* Card 6: Férias Ativas */}
         <Card 
           onClick={() => setActiveFilter(activeFilter === 'has_vacation' ? null : 'has_vacation')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-cyan-500/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
+          className={`flex-shrink-0 w-[220px] lg:w-auto shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
             activeFilter === 'has_vacation' 
-              ? 'border-cyan-500 ring-2 ring-cyan-500/20 bg-cyan-500/[0.03]' 
+              ? 'border-cyan-500 ring-2 ring-cyan-500/20' 
               : 'border-border/60 hover:border-cyan-500/30'
           }`}
         >
@@ -291,8 +338,7 @@ export default function SearchPage() {
         </Card>
       </motion.div>
  
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        <div className="lg:col-span-3 space-y-6">
+      <div className="w-full space-y-6">
           <div className="relative max-w-lg z-50">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -467,131 +513,6 @@ export default function SearchPage() {
           Nenhum colaborador encontrado para "{query}"
         </div>
       )}
-        </div>
-
-        {/* Sidebar Column: Últimas Alterações */}
-        <div className="lg:col-span-1 h-full">
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-card rounded-xl border border-border p-5 flex flex-col h-full lg:sticky lg:top-6"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                <History className="h-4 w-4" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-sm font-bold text-foreground">Últimas Alterações</h3>
-                <p className="text-[10px] text-muted-foreground">Histórico da escala e equipe</p>
-              </div>
-            </div>
-
-            <div className="space-y-3 flex-1 overflow-auto max-h-[580px] pr-1 scrollbar-none">
-              {auditLogs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-xs">
-                  Nenhuma alteração registrada.
-                </div>
-              ) : (
-                auditLogs.map((log, logIndex) => {
-                  const getLogIcon = (type) => {
-                    switch (type) {
-                      case 'schedule':
-                        return <Calendar className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />;
-                      case 'employee_create':
-                        return <UserPlus className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />;
-                      case 'employee_update':
-                        return <Pencil className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />;
-                      case 'certificate':
-                        return <FileText className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />;
-                      default:
-                        return <Lock className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />;
-                    }
-                  };
-
-                  const getIconBg = (type) => {
-                    switch (type) {
-                      case 'schedule': return 'bg-green-100 dark:bg-green-950/40';
-                      case 'employee_create': return 'bg-blue-100 dark:bg-blue-950/40';
-                      case 'employee_update': return 'bg-amber-100 dark:bg-amber-950/40';
-                      case 'certificate': return 'bg-red-100 dark:bg-red-950/40';
-                      default: return 'bg-purple-100 dark:bg-purple-950/40';
-                    }
-                  };
-
-                  const getHoverBorder = (type) => {
-                    switch (type) {
-                      case 'schedule': return 'hover:border-green-400/60 hover:shadow-[0_0_12px_-3px_rgba(34,197,94,0.3)]';
-                      case 'employee_create': return 'hover:border-blue-400/60 hover:shadow-[0_0_12px_-3px_rgba(59,130,246,0.3)]';
-                      case 'employee_update': return 'hover:border-amber-400/60 hover:shadow-[0_0_12px_-3px_rgba(245,158,11,0.3)]';
-                      case 'certificate': return 'hover:border-red-400/60 hover:shadow-[0_0_12px_-3px_rgba(239,68,68,0.3)]';
-                      default: return 'hover:border-purple-400/60 hover:shadow-[0_0_12px_-3px_rgba(168,85,247,0.3)]';
-                    }
-                  };
-
-                  const isClickable = log.employee_name && log.employee_name !== 'Sistema' && log.employee_name !== 'Administrador';
-
-                  return (
-                    <motion.div
-                      key={log.id}
-                      initial={{ opacity: 0, x: 15 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: logIndex * 0.08, duration: 0.3 }}
-                      whileHover={isClickable ? { scale: 1.02, y: -1 } : {}}
-                      whileTap={isClickable ? { scale: 0.97 } : {}}
-                      onClick={() => {
-                        if (isClickable) {
-                          const normalize = (s) => (s || '').trim().toLowerCase()
-                            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                          const logName = normalize(log.employee_name);
-                          // Strategy 1: exact match (case-insensitive, accent-insensitive)
-                          let emp = employees.find(e => normalize(e.name) === logName);
-                          // Strategy 2: partial match — log name starts with employee name or vice versa
-                          if (!emp) {
-                            emp = employees.find(e => {
-                              const empName = normalize(e.name);
-                              return empName.includes(logName) || logName.includes(empName);
-                            });
-                          }
-                          // Strategy 3: first word(s) match
-                          if (!emp) {
-                            const logParts = logName.split(/\s+/);
-                            emp = employees.find(e => {
-                              const empParts = normalize(e.name).split(/\s+/);
-                              return logParts.slice(0, 2).every(p => empParts.includes(p));
-                            });
-                          }
-                          if (emp) setSelectedEmployee(emp);
-                        }
-                      }}
-                      className={`flex gap-3 p-2.5 rounded-lg border bg-muted/20 transition-all duration-200 text-left group ${
-                        isClickable
-                          ? `cursor-pointer border-border/40 ${getHoverBorder(log.type)} hover:bg-muted/50`
-                          : 'border-border/40'
-                      }`}
-                    >
-                      <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${getIconBg(log.type)}`}>
-                        {getLogIcon(log.type)}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <p className="text-[11px] text-foreground font-medium leading-normal break-words">
-                          {log.description}
-                        </p>
-                        <span className="text-[9px] text-muted-foreground font-semibold block">
-                          {formatUpdateDate(log.created_date)}
-                        </span>
-                        {isClickable && (
-                          <span className="text-[8px] text-primary/60 font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1 pt-0.5">
-                            Ver espelho da escala →
-                          </span>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })
-              )}
-            </div>
-          </motion.div>
-        </div>
       </div>
 
       {/* Collaborator Profile Modal */}

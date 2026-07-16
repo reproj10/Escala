@@ -9,14 +9,14 @@ export default function AppLayout() {
   const isSchedulePage = location.pathname === '/escala' || location.pathname === '/escala-control';
 
   return (
-    <div className="h-screen overflow-hidden bg-background flex">
+    <div className="h-screen overflow-hidden bg-transparent flex">
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
       <main
         style={{ 
           marginLeft: collapsed ? 72 : 260,
           transition: 'margin-left 0.3s ease-in-out'
         }}
-        className="flex-1 h-screen overflow-hidden"
+        className="flex-1 h-screen overflow-hidden bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md"
       >
         {isSchedulePage ? (
           <div className="h-full overflow-y-auto p-4 flex flex-col">

@@ -363,7 +363,7 @@ function EscalaControl() {
   });
 
   // Target calendars for simulation
-  const [selectedDay, setSelectedDay] = useState<number>(24);
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
   const isSelectedDayOdd = selectedDay % 2 !== 0;
 
   // Active shift scale highlight state
@@ -2838,118 +2838,143 @@ function EscalaControl() {
                   </div>
                 </div>
 
-                {/* TOTALS PANEL */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 no-print">
-                  {/* Total Geral */}
-                  <div 
-                    className={cn(
-                      "sm:col-span-1 rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                      globalShiftFilter === "all" 
-                        ? "bg-emerald-500 border-emerald-600 shadow-emerald-200 dark:shadow-emerald-900" 
-                        : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
-                    )}
-                    onClick={() => setGlobalShiftFilter("all")}
-                  >
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "all" ? "text-white" : "text-emerald-700 dark:text-emerald-400")}>Total Geral</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "all" ? "text-white" : "text-emerald-600 dark:text-emerald-300")}>{allProfessionals.length}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "all" ? "text-emerald-100" : "text-emerald-500 dark:text-emerald-500")}>profissionais</span>
+                {/* CALENDAR & SELECTION GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start no-print mb-6">
+                  {/* LEFT: CALENDAR */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <Card className="border-border/40 shadow-sm relative overflow-hidden h-full flex flex-col">
+                      <CardHeader className="pb-3 pt-5 border-b border-border/15 shrink-0 bg-slate-50/50 dark:bg-slate-900/20">
+                        <CardTitle className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight flex items-center gap-1.5">
+                          <Calendar className="h-4.5 w-4.5 text-blue-600" /> SELEÇÃO DE DIA DE PLANTÃO
+                        </CardTitle>
+                        <CardDescription className="text-[10.5px] leading-relaxed mt-1.5">
+                          Alterne entre dias Ímpares ou Pares para carregar as equipes da Escala 12x36 correspondente em {getMonthName(selectedMonth)} de {selectedYear}.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-4 flex-1 flex flex-col">
+                        <div className="space-y-4 flex-1 flex flex-col">
+                          <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                              <div key={i} className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{d}</div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-7 gap-1 flex-1">
+                            {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }).map((_, i) => (
+                              <div key={`empty-${i}`} className="h-9 rounded-lg" />
+                            ))}
+                            {daysArray.map((day) => {
+                              const isToday = day === new Date().getDate() && selectedMonth === new Date().getMonth() + 1 && selectedYear === new Date().getFullYear();
+                              const isSelected = selectedDay === day;
+                              const isEven = day % 2 === 0;
+
+                              return (
+                                <button
+                                  key={day}
+                                  onClick={() => setSelectedDay(day)}
+                                  className={cn(
+                                    "relative h-9 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center border",
+                                    isSelected
+                                      ? "bg-blue-600 border-blue-700 text-white shadow-md transform scale-105 z-10"
+                                      : isToday
+                                      ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400"
+                                      : "bg-white border-transparent text-slate-700 hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800",
+                                    !isSelected && isEven ? "text-purple-600 dark:text-purple-400" : ""
+                                  )}
+                                >
+                                  <span>{day}</span>
+                                  <span className="text-[7px] font-black opacity-60 uppercase mt-0.5">
+                                    {isEven ? "PAR" : "ÍMPAR"}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 text-center shrink-0">
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
+                              Mapeamento Selecionado: <span className="text-blue-600 dark:text-blue-400">Dia {selectedDay} de {getMonthName(selectedMonth)} de {selectedYear}</span>
+                            </span>
+                            <p className="text-[10px] text-slate-500 mt-1 font-medium">Ativação automática para o grupo de plantões de dias <strong className="text-slate-700 dark:text-slate-300">{selectedDay % 2 === 0 ? "PARES" : "ÍMPARES"}</strong></p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
 
-                  {/* Diurno A */}
-                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                    globalShiftFilter === "impar_diurno" ? "bg-amber-500 border-amber-600 shadow-amber-200 dark:shadow-amber-900" : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
-                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "impar_diurno" ? "all" : "impar_diurno")}>
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "impar_diurno" ? "text-white" : "text-amber-700 dark:text-amber-400")}>Diurno A</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "impar_diurno" ? "text-white" : "text-amber-600 dark:text-amber-300")}>{shiftCounts.impar_diurno}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "impar_diurno" ? "text-amber-100" : "text-amber-500 dark:text-amber-500")}>colaboradores</span>
-                  </div>
-                  {/* Noturno A */}
-                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                    globalShiftFilter === "impar_noturno" ? "bg-purple-600 border-purple-700 shadow-purple-200 dark:shadow-purple-900" : "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
-                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "impar_noturno" ? "all" : "impar_noturno")}>
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "impar_noturno" ? "text-white" : "text-purple-700 dark:text-purple-400")}>Noturno A</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "impar_noturno" ? "text-white" : "text-purple-600 dark:text-purple-300")}>{shiftCounts.impar_noturno}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "impar_noturno" ? "text-purple-100" : "text-purple-500 dark:text-purple-500")}>colaboradores</span>
-                  </div>
-                  {/* Diurno B */}
-                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                    globalShiftFilter === "par_diurno" ? "bg-blue-500 border-blue-600 shadow-blue-200 dark:shadow-blue-900" : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
-                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_diurno" ? "all" : "par_diurno")}>
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-700 dark:text-blue-400")}>Diurno B</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-600 dark:text-blue-300")}>{shiftCounts.par_diurno}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_diurno" ? "text-blue-100" : "text-blue-500 dark:text-blue-500")}>colaboradores</span>
-                  </div>
-                  {/* Noturno B */}
-                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
-                    globalShiftFilter === "par_noturno" ? "bg-pink-600 border-pink-700 shadow-pink-200 dark:shadow-pink-900" : "bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800"
-                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_noturno" ? "all" : "par_noturno")}>
-                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_noturno" ? "text-white" : "text-pink-700 dark:text-pink-400")}>Noturno B</span>
-                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_noturno" ? "text-white" : "text-pink-600 dark:text-pink-300")}>{shiftCounts.par_noturno}</span>
-                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_noturno" ? "text-pink-100" : "text-pink-500 dark:text-pink-500")}>colaboradores</span>
-                  </div>
-                </div>
-
-                {/* INTERACTIVE FILTERS ROW */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 no-print">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por nome</Label>
-                    <div className="relative">
-                      <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-3" />
-                      <Input
-                        placeholder="Filtrar por nome do colaborador..."
-                        value={globalSearch}
-                        onChange={(e) => setGlobalSearch(e.target.value)}
-                        className="pl-9 pr-10 h-10 text-xs bg-background rounded-lg border-slate-200 animate-none"
-                      />
-                      {globalSearch && (
-                        <button
-                          type="button"
-                          onClick={() => setGlobalSearch('')}
-                          className="absolute right-2.5 top-3 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
-                          title="Apagar busca"
-                        >
-                          <Eraser className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por papel</Label>
-                    <Select value={globalRoleFilter} onValueChange={(val: "all" | "nurse" | "technician") => setGlobalRoleFilter(val)}>
-                      <SelectTrigger className="h-10 text-xs rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todo Corpo Assistencial</SelectItem>
-                        <SelectItem value="nurse">Enfermeiro Liderança</SelectItem>
-                        <SelectItem value="technician">Técnico de Enfermagem</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por escala</Label>
-                    <Select value={globalShiftFilter} onValueChange={(val) => setGlobalShiftFilter(val)}>
-                      <SelectTrigger className="h-10 text-xs rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as Escalas</SelectItem>
-                        {shifts.map((s) => {
-                          let icon = <Sun className="w-3 h-3 inline-block mr-1.5 text-amber-500 fill-amber-500" />;
-                          if (s.id === "rt_lideranca") icon = <Briefcase className="w-3 h-3 inline-block mr-1.5 text-slate-500" />;
-                          else if (s.id.includes("noturno")) icon = <MoonStar className="w-3 h-3 inline-block mr-1.5 text-slate-800 fill-slate-800 dark:text-slate-200 dark:fill-slate-200" />;
+                  {/* RIGHT: SHIFT SELECTION & TABLE */}
+                  <div className="lg:col-span-7 space-y-4">
+                    {/* SHIFT BUTTONS */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        👥 SELECIONE A EQUIPE DE PLANTÃO
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {shifts.map((group) => {
+                          const isSelected = globalShiftFilter === group.id;
+                          let dotColor = "bg-emerald-500";
+                          if (group.id === "rt_lideranca") dotColor = "bg-red-500";
+                          else if (group.id.includes("noturno")) dotColor = "bg-blue-500";
+                          
                           return (
-                            <SelectItem key={s.id} value={s.id}>
-                              <div className="flex items-center">
-                                {icon} {s.name}
-                              </div>
-                            </SelectItem>
+                            <button
+                              key={group.id}
+                              onClick={() => setGlobalShiftFilter(group.id)}
+                              className={cn(
+                                "flex flex-col items-start p-2.5 rounded-xl border transition-all text-left min-w-[120px] shadow-sm hover:-translate-y-0.5",
+                                isSelected 
+                                  ? "border-blue-500 bg-blue-50/60 dark:bg-blue-900/20 ring-1 ring-blue-500/20" 
+                                  : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                              )}
+                            >
+                              <span className={cn("text-xs font-bold", isSelected ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300")}>
+                                {group.name.replace(/Plantão/g, "").trim()}
+                              </span>
+                              <span className="text-[9px] flex items-center gap-1.5 mt-1 text-slate-500 font-bold tracking-wider">
+                                <span className={cn("w-1.5 h-1.5 rounded-full", dotColor)}></span>
+                                Equipe Conforme
+                              </span>
+                            </button>
                           );
                         })}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
+
+                    {/* GREEN BANNER */}
+                    <div className="bg-emerald-50/80 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm">
+                       <div className="flex items-center gap-2 font-black text-xs text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                         ✅ ESCALA PERFEITAMENTE EQUILIBRADA
+                       </div>
+                       <div className="text-[10px] mt-1 ml-6 text-emerald-600/90 dark:text-emerald-500/90 font-semibold">
+                         O número de folgas simultâneas respeita o teto de conformidade clínica da UPA.
+                       </div>
+                    </div>
+
+                    {/* INTERACTIVE FILTERS ROW */}
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="relative flex-1 max-w-md">
+                        <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-2.5" />
+                        <Input
+                          placeholder="Filtrar nesta lista..."
+                          value={globalSearch}
+                          onChange={(e) => setGlobalSearch(e.target.value)}
+                          className="pl-9 pr-10 h-9 text-xs bg-white dark:bg-slate-950 rounded-lg border-slate-200 shadow-sm"
+                        />
+                        {globalSearch && (
+                          <button type="button" onClick={() => setGlobalSearch('')} className="absolute right-2.5 top-2.5 text-pink-500 hover:text-pink-600 transition-colors">
+                            <Eraser className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <Select value={globalRoleFilter} onValueChange={(val: "all" | "nurse" | "technician") => setGlobalRoleFilter(val)}>
+                        <SelectTrigger className="h-9 text-xs rounded-lg w-[160px] bg-white shadow-sm border-slate-200">
+                          <SelectValue placeholder="Papel" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os Cargos</SelectItem>
+                          <SelectItem value="nurse">Enfermeiros</SelectItem>
+                          <SelectItem value="technician">Técnicos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
@@ -3885,7 +3910,7 @@ function EscalaControl() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* L. CALENDAR CONTROL PANEL */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-5 space-y-4">
             <Card className="bg-card border border-border shadow-sm rounded-xl relative overflow-hidden">
               <CardHeader className="pb-3 border-b border-border/15">
                 <CardTitle className="text-xs uppercase font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
@@ -3948,65 +3973,47 @@ function EscalaControl() {
               </CardContent>
             </Card>
 
-            {/* SECTORS METRIC COMPLIANCE CARD */}
-            <Card className="bg-card border border-border shadow-sm rounded-xl">
-              <CardHeader className="pb-3 border-b border-border/15">
-                <CardTitle className="text-xs uppercase font-black text-slate-700 dark:text-slate-350">
-                  Resumo das Escalas 12x36
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3">
-                {shifts.map((s) => {
-                  const sNurses = (s.staff || []).filter(m => m.role === "nurse");
-                  const sTechs = (s.staff || []).filter(m => m.role === "technician");
-                  const offNurses = sNurses.filter(m => m.status === "leave").length;
-                  const offTechs = sTechs.filter(m => m.status === "leave").length;
-                  
-                  const isSShiftActive = activeShiftId === s.id;
-                  const isWarn = offTechs > (limits?.technicians || 3) || offNurses > (limits?.nurses || 1);
+                      </div>
 
+          {/* R. DETAILED ACTIVE SHIFT COMPLIANCE ENGINE & ROSTER */}
+          <div className="lg:col-span-7 space-y-4">
+            
+                        {/* SHIFT SELECTION BUTTONS (HORIZONTAL) */}
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                👥 SELECIONE A EQUIPE DE PLANTÃO
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {shifts.map((group) => {
+                  const isSelected = activeShiftId === group.id;
+                  let dotColor = "bg-emerald-500";
+                  if (group.id === "rt_lideranca") dotColor = "bg-red-500";
+                  else if (group.id.includes("noturno")) dotColor = "bg-blue-500";
+                  
                   return (
                     <button
-                      key={s.id}
-                      onClick={() => setActiveShiftId(s.id)}
+                      key={group.id}
+                      onClick={() => setActiveShiftId(group.id)}
                       className={cn(
-                        "w-full text-left p-3 rounded-xl border text-xs transition-all flex items-center justify-between cursor-pointer",
-                        isSShiftActive 
-                          ? "border-indigo-500 bg-indigo-500/[0.04] dark:bg-indigo-505/10 shadow-sm"
-                          : "border-border/40 hover:bg-slate-50 dark:hover:bg-slate-950"
+                        "flex flex-col items-start p-2.5 rounded-xl border transition-all text-left min-w-[120px] shadow-sm hover:-translate-y-0.5",
+                        isSelected 
+                          ? "border-blue-500 bg-blue-50/60 dark:bg-blue-900/20 ring-1 ring-blue-500/20" 
+                          : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                       )}
                     >
-                      <div className="space-y-1">
-                        <span className="font-extrabold text-foreground block tracking-tight">
-                          {s.name}
-                        </span>
-                        <div className="flex gap-2 text-[10.5px] text-muted-foreground">
-                          <span>Liderança Off: <strong className={offNurses > (limits?.nurses || 1) ? "text-red-500" : "text-emerald-500"}>{offNurses}/{limits?.nurses || 1}</strong></span>
-                          <span>Técnico Off: <strong className={offTechs > (limits?.technicians || 3) ? "text-red-500" : "text-emerald-500"}>{offTechs}/{limits?.technicians || 3}</strong></span>
-                        </div>
-                      </div>
-
-                      <div>
-                        {isWarn ? (
-                          <Badge variant="destructive" className="text-[9px] font-bold px-1.5 uppercase rounded">
-                            Excedido
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 font-bold border-transparent text-[9px] uppercase rounded">
-                            Conforme
-                          </Badge>
-                        )}
-                      </div>
+                      <span className={cn("text-xs font-bold", isSelected ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300")}>
+                        {group.name.replace(/Plantão/g, "").trim()}
+                      </span>
+                      <span className="text-[9px] flex items-center gap-1.5 mt-1 text-slate-500 font-bold tracking-wider">
+                        <span className={cn("w-1.5 h-1.5 rounded-full", dotColor)}></span>
+                        Equipe Conforme
+                      </span>
                     </button>
                   );
                 })}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
 
-          {/* R. DETAILED ACTIVE SHIFT COMPLIANCE ENGINE & ROSTER */}
-          <div className="lg:col-span-8 space-y-4">
-            
             {/* AUDIT STATUS INDICATOR */}
             {shiftStats.isAnyRuleBreached ? (
               <div className="p-4 rounded-xl bg-amber-500/[0.04] dark:bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -4161,19 +4168,57 @@ function EscalaControl() {
                             )}
                           </TableCell>
                           <TableCell className="py-3">
-                            <button
-                              type="button"
-                              onClick={() => toggleMemberState(member.id)}
-                              className={cn(
-                                "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all",
-                                member.status === "working"
-                                  ? "bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                                  : "bg-red-500/[0.08] border-red-500/20 text-red-600 dark:text-red-400"
-                              )}
-                            >
-                              <span className={cn("h-1.5 w-1.5 rounded-full animate-pulse", member.status === "working" ? "bg-emerald-500" : "bg-red-500")} />
-                              {member.status === "working" ? "Em Plantão Ativo" : "Folga Cadastrada"}
-                            </button>
+                            {(() => {
+                              const statusForDay = (member.days && member.days[String(selectedDay)]) || (member.absence_status && member.absence_status !== "none" ? member.absence_status : (member.status === "working" ? "P" : "F"));
+                              
+                              if (statusForDay === "F") {
+                                return (
+                                  <button type="button" onClick={() => toggleMemberState(member.id)} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all bg-slate-500/[0.08] border-slate-500/20 text-slate-700 dark:text-slate-400">
+                                    <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-slate-500" />
+                                    Folga Cadastrada
+                                  </button>
+                                );
+                              }
+                              if (statusForDay === "V" || statusForDay === "FER") {
+                                return (
+                                  <button type="button" onClick={() => toggleMemberState(member.id)} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all bg-orange-500/[0.08] border-orange-500/20 text-orange-700 dark:text-orange-400">
+                                    <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-orange-500" />
+                                    De Férias
+                                  </button>
+                                );
+                              }
+                              if (statusForDay === "LM" || statusForDay === "AT" || statusForDay === "LTS") {
+                                return (
+                                  <button type="button" onClick={() => toggleMemberState(member.id)} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all bg-red-500/[0.08] border-red-500/20 text-red-700 dark:text-red-400">
+                                    <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-red-500" />
+                                    Licença Médica
+                                  </button>
+                                );
+                              }
+                              if (statusForDay === "FE" || statusForDay === "FA" || statusForDay === "BH") {
+                                return (
+                                  <button type="button" onClick={() => toggleMemberState(member.id)} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all bg-teal-500/[0.08] border-teal-500/20 text-teal-700 dark:text-teal-400">
+                                    <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-teal-500" />
+                                    Folga ({statusForDay})
+                                  </button>
+                                );
+                              }
+                              if (statusForDay !== "P") {
+                                return (
+                                  <button type="button" onClick={() => toggleMemberState(member.id)} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400">
+                                    <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-amber-500" />
+                                    {statusForDay}
+                                  </button>
+                                );
+                              }
+                              
+                              return (
+                                <button type="button" onClick={() => toggleMemberState(member.id)} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold border cursor-pointer hover:opacity-85 transition-all bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+                                  <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-emerald-500" />
+                                  Em Plantão Ativo
+                                </button>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="py-3 text-right pr-4">
                             <DropdownMenu>
@@ -4263,10 +4308,36 @@ function EscalaControl() {
             </CardHeader>
             <CardContent className="pt-5 pb-5">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
-                {/* FIELD 1: SHIFT SELECT (HORIZONTALLY ALIGNED) */}
+                {/* FIELD 1: SMART SEARCH (HORIZONTALLY ALIGNED) */}
+                <div className="md:col-span-5 space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                    BUSCA INTELIGENTE DE COLABORADOR
+                  </span>
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-3" />
+                    <Input 
+                      placeholder="Digite o nome do profissional..."
+                      value={collabSearchQuery}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCollabSearchQuery(val);
+                        if (val.trim().length >= 2) {
+                          const matches = allProfessionals.filter(p => p.name.toLowerCase().includes(val.toLowerCase().trim()));
+                          if (matches.length > 0) {
+                            setSelectedCollabId(matches[0].id);
+                            setCollabActiveShiftId(matches[0].shiftId);
+                          }
+                        }
+                      }}
+                      className="h-10 pl-9 text-xs bg-background border-slate-200 dark:border-slate-800 rounded-lg shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* FIELD 2: SHIFT SELECT (HORIZONTALLY ALIGNED) */}
                 <div className="md:col-span-4 space-y-1.5">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                    Passo A: Escolha seu Turno de Trabalho
+                    FILTRO POR TURNO (OPCIONAL)
                   </span>
                   <Select
                     value={collabActiveShiftId}
@@ -4285,14 +4356,15 @@ function EscalaControl() {
                     </SelectTrigger>
                     <SelectContent>
                       {shifts.map((group) => {
-                        let icon = <Sun className="w-3.5 h-3.5 inline-block mr-1.5 text-amber-500 fill-amber-500" />;
-                        if (group.id === "rt_lideranca") icon = <Briefcase className="w-3.5 h-3.5 inline-block mr-1.5 text-slate-500" />;
-                        else if (group.id.includes("noturno")) icon = <MoonStar className="w-3.5 h-3.5 inline-block mr-1.5 text-slate-800 fill-slate-800 dark:text-slate-200 dark:fill-slate-200" />;
-                        const label = group.name.replace(/Plantão|RT & Liderança/g, "").trim();
+                        let icon = "👥";
+                        if (group.id === "rt_lideranca") icon = "💼";
+                        else if (group.id.includes("noturno")) icon = "🌙";
+                        else icon = "☀️";
                         return (
                           <SelectItem key={group.id} value={group.id} className="text-xs font-semibold cursor-pointer">
-                            <div className="flex items-center">
-                              {icon} {label} ({group.staff.length} Profissionais)
+                            <div className="flex items-center gap-1.5">
+                              <span>{icon}</span>
+                              <span>{group.name.replace(/Plantão|RT & Liderança/g, "").trim()} ({group.staff.length} Profissionais)</span>
                             </div>
                           </SelectItem>
                         );
@@ -4301,10 +4373,10 @@ function EscalaControl() {
                   </Select>
                 </div>
 
-                {/* FIELD 2: PROFESSIONAL SELECT OR SEARCH (HORIZONTALLY ALIGNED) */}
-                <div className="md:col-span-5 space-y-1.5">
+                {/* FIELD 3: PROFESSIONAL SELECT (HORIZONTALLY ALIGNED) */}
+                <div className="md:col-span-3 space-y-1.5">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                    Passo B: Escolha o seu Nome Assistencial
+                    NOME NO TURNO
                   </span>
                   <Select
                     value={selectedCollabId}
@@ -4314,47 +4386,18 @@ function EscalaControl() {
                     }}
                   >
                     <SelectTrigger className="h-10 text-xs rounded-lg font-bold">
-                      <SelectValue placeholder="Selecione seu Nome" />
+                      <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
                       {(shifts.find(s => s.id === collabActiveShiftId)?.staff || []).map((p) => {
-                        const isRt = p.id === "staff-renata";
-                        const isLead = p.id === "staff-maria";
-                        const isNurse = p.role === "nurse";
                         return (
                           <SelectItem key={p.id} value={p.id} className="text-xs font-medium cursor-pointer">
-                            {p.name} — {isRt ? "RT Técnica" : isLead ? "Liderança" : isNurse ? "Enfermeiro" : "Técnico"}
+                            {p.name}
                           </SelectItem>
                         );
                       })}
                     </SelectContent>
                   </Select>
-                </div>
-
-                {/* QUICK SEARCH FIELD FOR EASIER FINDING (HORIZONTALLY ALIGNED) */}
-                <div className="md:col-span-3 space-y-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                    Atalho: Pesquisa Direta em Toda a Equipe
-                  </span>
-                  <div className="relative">
-                    <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-3" />
-                    <Input 
-                      placeholder="Identifique-se pesquisando..."
-                      value={collabSearchQuery}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCollabSearchQuery(val);
-                        if (val.trim().length >= 2) {
-                          const matches = allProfessionals.filter(p => p.name.toLowerCase().includes(val.toLowerCase().trim()));
-                          if (matches.length > 0) {
-                            setSelectedCollabId(matches[0].id);
-                            setCollabActiveShiftId(matches[0].shiftId);
-                          }
-                        }
-                      }}
-                      className="h-10 pl-9 text-xs bg-background border-slate-200 dark:border-slate-800 rounded-lg shadow-sm"
-                    />
-                  </div>
                 </div>
               </div>
 

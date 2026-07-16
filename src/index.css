@@ -92,7 +92,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-inter;
+    @apply bg-gradient-to-b from-blue-300 to-slate-900 text-foreground font-inter min-h-screen bg-no-repeat bg-fixed;
   }
 }
 
