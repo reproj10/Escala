@@ -26095,7 +26095,7 @@ var require_react_dom_development = __commonJS({
           if (value != null) {
             if (type === "number") {
               if (value === 0 && node.value === "" || // We explicitly want to coerce to number here if possible.
-              // eslint-disable-next-line
+               
               node.value != value) {
                 node.value = toString(value);
               }
@@ -29696,7 +29696,7 @@ var require_react_dom_development = __commonJS({
             case "touchstart":
             case "volumechange":
             // Used by polyfills:
-            // eslint-disable-next-line no-fallthrough
+             
             case "change":
             case "selectionchange":
             case "textInput":
@@ -29704,11 +29704,11 @@ var require_react_dom_development = __commonJS({
             case "compositionend":
             case "compositionupdate":
             // Only enableCreateEventHandleAPI:
-            // eslint-disable-next-line no-fallthrough
+             
             case "beforeblur":
             case "afterblur":
             // Not used by React but could be by user code:
-            // eslint-disable-next-line no-fallthrough
+             
             case "beforeinput":
             case "blur":
             case "fullscreenchange":
@@ -29734,7 +29734,7 @@ var require_react_dom_development = __commonJS({
             case "touchmove":
             case "wheel":
             // Not used by React but could be by user code:
-            // eslint-disable-next-line no-fallthrough
+             
             case "mouseenter":
             case "mouseleave":
             case "pointerenter":
@@ -44568,15 +44568,15 @@ var require_react_dom_development = __commonJS({
               case REACT_OFFSCREEN_TYPE:
                 return createFiberFromOffscreen(pendingProps, mode, lanes, key);
               case REACT_LEGACY_HIDDEN_TYPE:
-              // eslint-disable-next-line no-fallthrough
+               
               case REACT_SCOPE_TYPE:
-              // eslint-disable-next-line no-fallthrough
+               
               case REACT_CACHE_TYPE:
-              // eslint-disable-next-line no-fallthrough
+               
               case REACT_TRACING_MARKER_TYPE:
-              // eslint-disable-next-line no-fallthrough
+               
               case REACT_DEBUG_TRACING_MODE_TYPE:
-              // eslint-disable-next-line no-fallthrough
+               
               default: {
                 if (typeof type === "object" && type !== null) {
                   switch (type.$$typeof) {
@@ -49329,7 +49329,7 @@ var require_router_cjs = __commonJS({
         "devtools:",
         "file:",
         "filesystem:",
-        // eslint-disable-next-line no-script-url
+         
         "javascript:"
       ];
       if (ABSOLUTE_URL_REGEX.test(location2)) {
@@ -59575,7 +59575,7 @@ var require_DefaultLegendContent = __commonJS({
             (0, _LogUtils.warn)(
               !(0, _isFunction["default"])(entry.value),
               `The name property is also required when using a function for the dataKey of a chart's cartesian components. Ex: <Bar name="Name of my Data"/>`
-              // eslint-disable-line max-len
+               
             );
             var color2 = entry.inactive ? inactiveColor : entry.color;
             return /* @__PURE__ */ _react["default"].createElement("li", _extends({
@@ -81129,7 +81129,7 @@ var require_AnimateGroup = __commonJS({
           enterOptions: enter,
           leaveOptions: leave,
           key: "child-".concat(index2)
-          // eslint-disable-line
+           
         }, child);
       }));
     }
@@ -133027,12 +133027,12 @@ var require_purify_cjs = __commonJS({
     var ARIA_ATTR = seal(/^aria-[\-\w]+$/);
     var IS_ALLOWED_URI = seal(
       /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
-      // eslint-disable-line no-useless-escape
+       
     );
     var IS_SCRIPT_OR_DATA = seal(/^(?:\w+script|data):/i);
     var ATTR_WHITESPACE = seal(
       /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g
-      // eslint-disable-line no-control-regex
+       
     );
     var DOCTYPE_NAME = seal(/^html$/i);
     var CUSTOM_ELEMENT = seal(/^[a-z][.\w]*(-[.\w]+)+$/i);
@@ -133473,7 +133473,7 @@ var require_purify_cjs = __commonJS({
         return createNodeIterator.call(
           root.ownerDocument || root,
           root,
-          // eslint-disable-next-line no-bitwise
+           
           NodeFilter2.SHOW_ELEMENT | NodeFilter2.SHOW_COMMENT | NodeFilter2.SHOW_TEXT | NodeFilter2.SHOW_PROCESSING_INSTRUCTION | NodeFilter2.SHOW_CDATA_SECTION,
           null
         );
@@ -133483,7 +133483,7 @@ var require_purify_cjs = __commonJS({
         const walker = createNodeIterator.call(
           node.ownerDocument || node,
           node,
-          // eslint-disable-next-line no-bitwise
+           
           NodeFilter2.SHOW_TEXT | NodeFilter2.SHOW_COMMENT | NodeFilter2.SHOW_CDATA_SECTION | NodeFilter2.SHOW_PROCESSING_INSTRUCTION,
           null
         );
@@ -133901,8 +133901,8 @@ var require_global_this = __commonJS({
       return it && it.Math === Math && it;
     };
     module2.exports = // eslint-disable-next-line es/no-global-this -- safe
-    check(typeof globalThis == "object" && globalThis) || check(typeof window == "object" && window) || // eslint-disable-next-line no-restricted-globals -- safe
-    check(typeof self == "object" && self) || check(typeof global == "object" && global) || check(typeof exports2 == "object" && exports2) || // eslint-disable-next-line no-new-func -- fallback
+    check(typeof globalThis == "object" && globalThis) || check(typeof window == "object" && window) ||  
+    check(typeof self == "object" && self) || check(typeof global == "object" && global) || check(typeof exports2 == "object" && exports2) ||  
     /* @__PURE__ */ (function() {
       return this;
     })() || Function("return this")();
@@ -138170,7 +138170,7 @@ var require_es_array_concat = __commonJS({
     };
     var FORCED = !IS_CONCAT_SPREADABLE_SUPPORT || !arrayMethodHasSpeciesSupport("concat");
     $2({ target: "Array", proto: true, arity: 1, forced: FORCED }, {
-      // eslint-disable-next-line no-unused-vars -- required for `.length`
+       
       concat: function concat(arg) {
         var O = toObject(this);
         var A = arraySpeciesCreate(O, 0);

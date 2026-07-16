@@ -15606,7 +15606,7 @@
             if (value != null) {
               if (type === "number") {
                 if (value === 0 && node2.value === "" || // We explicitly want to coerce to number here if possible.
-                // eslint-disable-next-line
+                 
                 node2.value != value) {
                   node2.value = toString3(value);
                 }
@@ -19207,7 +19207,7 @@
               case "touchstart":
               case "volumechange":
               // Used by polyfills:
-              // eslint-disable-next-line no-fallthrough
+               
               case "change":
               case "selectionchange":
               case "textInput":
@@ -19215,11 +19215,11 @@
               case "compositionend":
               case "compositionupdate":
               // Only enableCreateEventHandleAPI:
-              // eslint-disable-next-line no-fallthrough
+               
               case "beforeblur":
               case "afterblur":
               // Not used by React but could be by user code:
-              // eslint-disable-next-line no-fallthrough
+               
               case "beforeinput":
               case "blur":
               case "fullscreenchange":
@@ -19245,7 +19245,7 @@
               case "touchmove":
               case "wheel":
               // Not used by React but could be by user code:
-              // eslint-disable-next-line no-fallthrough
+               
               case "mouseenter":
               case "mouseleave":
               case "pointerenter":
@@ -34079,15 +34079,15 @@
                 case REACT_OFFSCREEN_TYPE:
                   return createFiberFromOffscreen(pendingProps, mode, lanes, key);
                 case REACT_LEGACY_HIDDEN_TYPE:
-                // eslint-disable-next-line no-fallthrough
+                 
                 case REACT_SCOPE_TYPE:
-                // eslint-disable-next-line no-fallthrough
+                 
                 case REACT_CACHE_TYPE:
-                // eslint-disable-next-line no-fallthrough
+                 
                 case REACT_TRACING_MARKER_TYPE:
-                // eslint-disable-next-line no-fallthrough
+                 
                 case REACT_DEBUG_TRACING_MODE_TYPE:
-                // eslint-disable-next-line no-fallthrough
+                 
                 default: {
                   if (typeof type === "object" && type !== null) {
                     switch (type.$$typeof) {
@@ -52777,7 +52777,7 @@
       return createNodeIterator.call(
         root.ownerDocument || root,
         root,
-        // eslint-disable-next-line no-bitwise
+         
         NodeFilter2.SHOW_ELEMENT | NodeFilter2.SHOW_COMMENT | NodeFilter2.SHOW_TEXT | NodeFilter2.SHOW_PROCESSING_INSTRUCTION | NodeFilter2.SHOW_CDATA_SECTION,
         null
       );
@@ -52787,7 +52787,7 @@
       const walker = createNodeIterator.call(
         node2.ownerDocument || node2,
         node2,
-        // eslint-disable-next-line no-bitwise
+         
         NodeFilter2.SHOW_TEXT | NodeFilter2.SHOW_COMMENT | NodeFilter2.SHOW_CDATA_SECTION | NodeFilter2.SHOW_PROCESSING_INSTRUCTION,
         null
       );
@@ -53270,12 +53270,12 @@
       ARIA_ATTR = seal(/^aria-[\-\w]+$/);
       IS_ALLOWED_URI = seal(
         /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
-        // eslint-disable-line no-useless-escape
+         
       );
       IS_SCRIPT_OR_DATA = seal(/^(?:\w+script|data):/i);
       ATTR_WHITESPACE = seal(
         /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g
-        // eslint-disable-line no-control-regex
+         
       );
       DOCTYPE_NAME = seal(/^html$/i);
       CUSTOM_ELEMENT = seal(/^[a-z][.\w]*(-[.\w]+)+$/i);
@@ -53339,8 +53339,8 @@
         return it2 && it2.Math === Math && it2;
       };
       module.exports = // eslint-disable-next-line es/no-global-this -- safe
-      check(typeof globalThis == "object" && globalThis) || check(typeof window == "object" && window) || // eslint-disable-next-line no-restricted-globals -- safe
-      check(typeof self == "object" && self) || check(typeof global == "object" && global) || check(typeof exports == "object" && exports) || // eslint-disable-next-line no-new-func -- fallback
+      check(typeof globalThis == "object" && globalThis) || check(typeof window == "object" && window) ||  
+      check(typeof self == "object" && self) || check(typeof global == "object" && global) || check(typeof exports == "object" && exports) ||  
       /* @__PURE__ */ (function() {
         return this;
       })() || Function("return this")();
@@ -84790,7 +84790,7 @@
           warn(
             !(0, import_isFunction2.default)(entry.value),
             `The name property is also required when using a function for the dataKey of a chart's cartesian components. Ex: <Bar name="Name of my Data"/>`
-            // eslint-disable-line max-len
+             
           );
           var color3 = entry.inactive ? inactiveColor : entry.color;
           return /* @__PURE__ */ import_react39.default.createElement("li", _extends7({
