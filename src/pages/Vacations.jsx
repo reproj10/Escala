@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { getCurrentMonthYearString, getCurrentMonthString } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { cn, normalizeSearch } from "@/lib/utils";
 import { Plus, FileHeart, X, Search, Calendar, Trash2, HeartPulse, ShieldAlert, Award, Stethoscope, Percent, Pencil, CheckCircle2, Save, RefreshCw, Copy, Printer, User, Eraser } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
@@ -399,16 +399,17 @@ export default function Vacations() {
     vacations.forEach(vac => {
       const type = typeLabels[vac.type] || vac.type || 'Férias';
       dist[type] = (dist[type] || 0) + 1;
-    });
+});
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
   }, [vacations]);
 
   // Filtered List
   const filteredVacations = useMemo(() => {
-    return vacations.filter(c => 
-      c.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.aquisitivo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.notes?.toLowerCase().includes(searchQuery.toLowerCase())
+    const q = normalizeSearch(searchQuery);
+    return vacations.filter(c =>
+      normalizeSearch(c.employee_name).includes(q) ||
+      normalizeSearch(c.aquisitivo).includes(q) ||
+      normalizeSearch(c.notes).includes(q)
     );
   }, [vacations, searchQuery]);
 
@@ -571,10 +572,10 @@ export default function Vacations() {
                       <AnimatePresence>
                         {isEmpFocused && (
                           (() => {
-                            const queryLower = (form.employee_name || '').trim().toLowerCase();
+                            const queryLower = normalizeSearch(form.employee_name);
                             const filtered = employees.filter(e => {
                               if (!queryLower) return true;
-                              const nameLower = e.name?.toLowerCase() || '';
+                              const nameLower = normalizeSearch(e.name);
                               const words = nameLower.split(/\s+/);
                               return words.some(w => w.startsWith(queryLower));
                             });

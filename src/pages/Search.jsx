@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Search as SearchIcon, User, Calendar, Clock, X, HeartPulse, ShieldCheck, Award, Users, Activity, FileText, UserX, Sun, History, Pencil, UserPlus, Lock, Eraser } from 'lucide-react';
-import { formatName, getCurrentMonthYearString, cn } from '@/lib/utils';
+import { formatName, getCurrentMonthYearString, cn, normalizeSearch } from '@/lib/utils';
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusLabels = { active: 'Ativo', inactive: 'Inativo', on_leave: 'Afastado' };
 const statusColors = { active: 'bg-success/20 text-success', inactive: 'bg-muted text-muted-foreground', on_leave: 'bg-warning/20 text-warning' };
@@ -89,7 +89,7 @@ export default function SearchPage() {
     const qParam = searchParams.get('q');
     if (qParam && employees.length > 0) {
       const emp = employees.find(
-        e => e.name?.trim().toLowerCase() === qParam.trim().toLowerCase()
+        e => normalizeSearch(e.name) === normalizeSearch(qParam)
       );
       if (emp) {
         setSelectedEmployee(emp);
@@ -115,10 +115,10 @@ export default function SearchPage() {
   });
 
   const filtered = employees.filter(e => {
-    const nameLower = e.name?.toLowerCase() || '';
-    const roleLower = e.role?.toLowerCase() || '';
+    const nameLower = normalizeSearch(e.name);
+    const roleLower = normalizeSearch(e.role);
     const corenStr = e.coren?.toString() || '';
-    const queryLower = query.toLowerCase();
+    const queryLower = normalizeSearch(query);
     
     // Check if any word starts with query or if coren/role matches
     const words = nameLower.split(/\s+/);
@@ -210,14 +210,18 @@ export default function SearchPage() {
     return sum + Object.values(s.days || {}).filter(v => v === 'V').length;
   }, 0);
 
-  // Generate A4 Calendar for June 2026 (Starts on Monday, 1 offset)
+  // Generate Calendar dynamically based on current month/year
   const getCalendarDays = () => {
     const days = [];
-    const startOffset = 1;
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const numDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const startOffset = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday, 1 = Monday...
     for (let i = 0; i < startOffset; i++) {
       days.push(null);
     }
-    for (let d = 1; d <= 30; d++) {
+    for (let d = 1; d <= numDays; d++) {
       days.push(d);
     }
     return days;
@@ -368,8 +372,8 @@ export default function SearchPage() {
           {isFocused && query && (
             (() => {
               const suggestions = employees.filter(e => {
-                const nameLower = e.name?.toLowerCase() || '';
-                const queryLower = query.toLowerCase();
+                const nameLower = normalizeSearch(e.name);
+                const queryLower = normalizeSearch(query);
                 const words = nameLower.split(/\s+/);
                 const matchesWordStart = words.some(w => w.startsWith(queryLower));
                 return matchesWordStart && nameLower !== queryLower;
@@ -518,11 +522,7 @@ export default function SearchPage() {
       {/* Collaborator Profile Modal */}
       <AnimatePresence>
         {selectedEmployee && (() => {
-          const schedule = schedules.find(s => s.employee_name?.trim() === selectedEmployee.name?.trim());
-          const totalStats = schedule ? Object.values(schedule.days || {}).reduce((acc, curr) => {
-            if (curr) acc[curr] = (acc[curr] || 0) + 1;
-            return acc;
-          }, {}) : {};
+          const schedule = schedules.find(s => normalizeSearch(s.employee_name) === normalizeSearch(selectedEmployee.name));
 
           const now = new Date();
           const currentMonth = now.getMonth() + 1;
@@ -538,6 +538,48 @@ export default function SearchPage() {
               const monthEnd = new Date(currentYear, currentMonth, 0);
               return start <= monthEnd && end >= monthStart;
             });
+          }
+
+          // Compute visual totalStats correctly based on what will be rendered
+          const totalStats = {};
+          const numDays = new Date(currentYear, currentMonth, 0).getDate();
+          for (let day = 1; day <= numDays; day++) {
+             let val = schedule?.days?.[String(day)] || '';
+             
+             if (activeCertificate) {
+                 const targetDate = new Date(currentYear, currentMonth - 1, day);
+                 const [sYear, sMonth, sDay] = activeCertificate.start_date.split('T')[0].split('-');
+                 const start = new Date(sYear, sMonth - 1, sDay);
+                 
+                 let end;
+                 if (activeCertificate.end_date) {
+                   const [eYear, eMonth, eDay] = activeCertificate.end_date.split('T')[0].split('-');
+                   end = new Date(eYear, eMonth - 1, eDay);
+                 } else {
+                   end = new Date(start.getTime() + (activeCertificate.days || 1) * 24 * 60 * 60 * 1000);
+                 }
+                 
+                 start.setHours(0,0,0,0);
+                 end.setHours(23,59,59,999);
+                 
+                 if (targetDate >= start && targetDate <= end) {
+                    const type = activeCertificate.type || '';
+                    val = type.split('_')[0];
+                    if (val === 'Med') val = 'LM';
+                 }
+              } else if (selectedEmployee.absence_status && selectedEmployee.absence_status !== 'none') {
+                 val = selectedEmployee.absence_status;
+              }
+              
+              if (!val || val === 'F' || val.trim() === '') {
+                const strDays = JSON.stringify(schedule?.days || {}).toUpperCase();
+                const match = strDays.match(/[:"]\s*(LM|FER|LTS|LS|MAT|SUS)\s*([,}]|$)/);
+                if (match) val = match[1];
+              }
+              
+              if (val) {
+                 totalStats[val] = (totalStats[val] || 0) + 1;
+              }
           }
 
           return (
@@ -632,8 +674,16 @@ export default function SearchPage() {
                       // Auto-fill logic from medical certificates (Source of Truth)
                       if (activeCertificate) {
                          const targetDate = new Date(currentYear, currentMonth - 1, day);
-                         const start = new Date(activeCertificate.start_date);
-                         const end = activeCertificate.end_date ? new Date(activeCertificate.end_date) : new Date(start.getTime() + (activeCertificate.days || 1) * 24 * 60 * 60 * 1000);
+                         const [sYear, sMonth, sDay] = activeCertificate.start_date.split('T')[0].split('-');
+                         const start = new Date(sYear, sMonth - 1, sDay);
+                         
+                         let end;
+                         if (activeCertificate.end_date) {
+                           const [eYear, eMonth, eDay] = activeCertificate.end_date.split('T')[0].split('-');
+                           end = new Date(eYear, eMonth - 1, eDay);
+                         } else {
+                           end = new Date(start.getTime() + (activeCertificate.days || 1) * 24 * 60 * 60 * 1000);
+                         }
                          
                          start.setHours(0,0,0,0);
                          end.setHours(23,59,59,999);

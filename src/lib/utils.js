@@ -3,7 +3,21 @@ import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs))
-} 
+}
+
+/**
+ * Normalizes a string for accent-insensitive search.
+ * Converts to lowercase, removes all diacritical marks (accents), and trims whitespace.
+ * Example: normalizeSearch("Cíntia") === normalizeSearch("Cintia") === "cintia"
+ */
+export function normalizeSearch(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
 
 export const isIframe = window.self !== window.top;
 

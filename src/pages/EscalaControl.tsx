@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, normalizeSearch } from "@/lib/utils";
 import { 
   CalendarDays, 
   Clock, 
@@ -308,10 +308,10 @@ function EscalaControl() {
           
           let shiftEmployees = [];
           if (dbShiftType === 'rt_lideranca') {
-            shiftEmployees = employees.filter(e => e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || e.name.toLowerCase().includes('maria eduarda'));
+            shiftEmployees = employees.filter(e => e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || normalizeSearch(e.name).includes('maria eduarda'));
           } else {
             shiftEmployees = employees.filter(e => {
-              if (e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || e.name.toLowerCase().includes('maria eduarda')) return false;
+              if (e.role === 'RES.TECNICA' || e.role === 'LIDERANÇA' || normalizeSearch(e.name).includes('maria eduarda')) return false;
               
               // O plantão é definido APENAS pelo cadastro global do colaborador,
               // para evitar que ele "pule" de aba ao navegar para meses anteriores
@@ -836,7 +836,8 @@ function EscalaControl() {
   // Filtered list of professionals in global scale view
   const filteredGlobals = useMemo(() => {
     let list = allProfessionals.filter(p => {
-      if (globalSearch.trim() && !p.name.toLowerCase().includes(globalSearch.toLowerCase().trim())) {
+      const q = normalizeSearch(globalSearch);
+      if (q && !normalizeSearch(p.name).includes(q)) {
         return false;
       }
       if (globalRoleFilter !== "all" && p.role !== globalRoleFilter) {
@@ -1147,7 +1148,7 @@ function EscalaControl() {
     
     // Add title block
     html += `<h2>ESCALA MENSAL UNIFICADA DE ENFERMAGEM - UPA 24H</h2>`;
-    html += `<p><b>Gestor de Escalas:</b> Renata Pereira (Responsável Técnica)</p>`;
+    html += `<p><b>Gestor de Escalas:</b> ${managerSignature}</p>`;
     html += `<p><b>Mês/Ano de Referência:</b> ${getMonthName(selectedMonth)} de ${selectedYear}</p>`;
     html += `<p><b>Data de Exportação:</b> ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</p>`;
     html += `<br/>`;
@@ -1991,11 +1992,11 @@ function EscalaControl() {
 
   // Filter lists inside active shift
   const filteredStaff = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeSearch(searchQuery);
     if (!q) return currentActiveShift?.staff || [];
     return (currentActiveShift?.staff || []).filter(m => 
-      m.name.toLowerCase().includes(q) || 
-      m.role.toLowerCase().includes(q)
+      normalizeSearch(m.name).includes(q) || 
+      normalizeSearch(m.role).includes(q)
     );
   }, [currentActiveShift?.staff, searchQuery]);
 
@@ -2039,7 +2040,7 @@ function EscalaControl() {
           <Input 
             value={managerSignature} 
             onChange={(e) => setManagerSignature(e.target.value)}
-            className="h-8 max-w-[240px] text-xs font-bold rounded-lg focus-visible:ring-1 focus-visible:ring-primary"
+            className="h-8 w-[320px] max-w-full text-xs font-bold rounded-lg focus-visible:ring-1 focus-visible:ring-primary"
             placeholder="Nome do Gestor Geral"
           />
         </div>
@@ -2838,143 +2839,118 @@ function EscalaControl() {
                   </div>
                 </div>
 
-                {/* CALENDAR & SELECTION GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start no-print mb-6">
-                  {/* LEFT: CALENDAR */}
-                  <div className="lg:col-span-5 space-y-4">
-                    <Card className="border-border/40 shadow-sm relative overflow-hidden h-full flex flex-col">
-                      <CardHeader className="pb-3 pt-5 border-b border-border/15 shrink-0 bg-slate-50/50 dark:bg-slate-900/20">
-                        <CardTitle className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight flex items-center gap-1.5">
-                          <Calendar className="h-4.5 w-4.5 text-blue-600" /> SELEÇÃO DE DIA DE PLANTÃO
-                        </CardTitle>
-                        <CardDescription className="text-[10.5px] leading-relaxed mt-1.5">
-                          Alterne entre dias Ímpares ou Pares para carregar as equipes da Escala 12x36 correspondente em {getMonthName(selectedMonth)} de {selectedYear}.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4 flex-1 flex flex-col">
-                        <div className="space-y-4 flex-1 flex flex-col">
-                          <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                              <div key={i} className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{d}</div>
-                            ))}
-                          </div>
-                          <div className="grid grid-cols-7 gap-1 flex-1">
-                            {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }).map((_, i) => (
-                              <div key={`empty-${i}`} className="h-9 rounded-lg" />
-                            ))}
-                            {daysArray.map((day) => {
-                              const isToday = day === new Date().getDate() && selectedMonth === new Date().getMonth() + 1 && selectedYear === new Date().getFullYear();
-                              const isSelected = selectedDay === day;
-                              const isEven = day % 2 === 0;
-
-                              return (
-                                <button
-                                  key={day}
-                                  onClick={() => setSelectedDay(day)}
-                                  className={cn(
-                                    "relative h-9 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center border",
-                                    isSelected
-                                      ? "bg-blue-600 border-blue-700 text-white shadow-md transform scale-105 z-10"
-                                      : isToday
-                                      ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400"
-                                      : "bg-white border-transparent text-slate-700 hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800",
-                                    !isSelected && isEven ? "text-purple-600 dark:text-purple-400" : ""
-                                  )}
-                                >
-                                  <span>{day}</span>
-                                  <span className="text-[7px] font-black opacity-60 uppercase mt-0.5">
-                                    {isEven ? "PAR" : "ÍMPAR"}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 text-center shrink-0">
-                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
-                              Mapeamento Selecionado: <span className="text-blue-600 dark:text-blue-400">Dia {selectedDay} de {getMonthName(selectedMonth)} de {selectedYear}</span>
-                            </span>
-                            <p className="text-[10px] text-slate-500 mt-1 font-medium">Ativação automática para o grupo de plantões de dias <strong className="text-slate-700 dark:text-slate-300">{selectedDay % 2 === 0 ? "PARES" : "ÍMPARES"}</strong></p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                {/* TOTALS PANEL */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 no-print">
+                  {/* Total Geral */}
+                  <div 
+                    className={cn(
+                      "sm:col-span-1 rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
+                      globalShiftFilter === "all" 
+                        ? "bg-emerald-500 border-emerald-600 shadow-emerald-200 dark:shadow-emerald-900" 
+                        : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                    )}
+                    onClick={() => setGlobalShiftFilter("all")}
+                  >
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "all" ? "text-white" : "text-emerald-700 dark:text-emerald-400")}>Total Geral</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "all" ? "text-white" : "text-emerald-600 dark:text-emerald-300")}>{allProfessionals.length}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "all" ? "text-emerald-100" : "text-emerald-500 dark:text-emerald-500")}>profissionais</span>
                   </div>
 
-                  {/* RIGHT: SHIFT SELECTION & TABLE */}
-                  <div className="lg:col-span-7 space-y-4">
-                    {/* SHIFT BUTTONS */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                        👥 SELECIONE A EQUIPE DE PLANTÃO
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {shifts.map((group) => {
-                          const isSelected = globalShiftFilter === group.id;
-                          let dotColor = "bg-emerald-500";
-                          if (group.id === "rt_lideranca") dotColor = "bg-red-500";
-                          else if (group.id.includes("noturno")) dotColor = "bg-blue-500";
-                          
+                  {/* Diurno A */}
+                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
+                    globalShiftFilter === "impar_diurno" ? "bg-amber-500 border-amber-600 shadow-amber-200 dark:shadow-amber-900" : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "impar_diurno" ? "all" : "impar_diurno")}>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "impar_diurno" ? "text-white" : "text-amber-700 dark:text-amber-400")}>Diurno A</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "impar_diurno" ? "text-white" : "text-amber-600 dark:text-amber-300")}>{shiftCounts.impar_diurno}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "impar_diurno" ? "text-amber-100" : "text-amber-500 dark:text-amber-500")}>colaboradores</span>
+                  </div>
+                  {/* Noturno A */}
+                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
+                    globalShiftFilter === "impar_noturno" ? "bg-purple-600 border-purple-700 shadow-purple-200 dark:shadow-purple-900" : "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
+                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "impar_noturno" ? "all" : "impar_noturno")}>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "impar_noturno" ? "text-white" : "text-purple-700 dark:text-purple-400")}>Noturno A</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "impar_noturno" ? "text-white" : "text-purple-600 dark:text-purple-300")}>{shiftCounts.impar_noturno}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "impar_noturno" ? "text-purple-100" : "text-purple-500 dark:text-purple-500")}>colaboradores</span>
+                  </div>
+                  {/* Diurno B */}
+                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
+                    globalShiftFilter === "par_diurno" ? "bg-blue-500 border-blue-600 shadow-blue-200 dark:shadow-blue-900" : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_diurno" ? "all" : "par_diurno")}>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-700 dark:text-blue-400")}>Diurno B</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_diurno" ? "text-white" : "text-blue-600 dark:text-blue-300")}>{shiftCounts.par_diurno}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_diurno" ? "text-blue-100" : "text-blue-500 dark:text-blue-500")}>colaboradores</span>
+                  </div>
+                  {/* Noturno B */}
+                  <div className={cn("rounded-xl p-3 border shadow flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all hover:scale-[1.03]",
+                    globalShiftFilter === "par_noturno" ? "bg-pink-600 border-pink-700 shadow-pink-200 dark:shadow-pink-900" : "bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800"
+                  )} onClick={() => setGlobalShiftFilter(globalShiftFilter === "par_noturno" ? "all" : "par_noturno")}>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-widest", globalShiftFilter === "par_noturno" ? "text-white" : "text-pink-700 dark:text-pink-400")}>Noturno B</span>
+                    <span className={cn("text-3xl font-black leading-none", globalShiftFilter === "par_noturno" ? "text-white" : "text-pink-600 dark:text-pink-300")}>{shiftCounts.par_noturno}</span>
+                    <span className={cn("text-[10px] font-medium", globalShiftFilter === "par_noturno" ? "text-pink-100" : "text-pink-500 dark:text-pink-500")}>colaboradores</span>
+                  </div>
+                </div>
+
+                {/* INTERACTIVE FILTERS ROW */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 no-print">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por nome</Label>
+                    <div className="relative">
+                      <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-3" />
+                      <Input
+                        placeholder="Filtrar por nome do colaborador..."
+                        value={globalSearch}
+                        onChange={(e) => setGlobalSearch(e.target.value)}
+                        className="pl-9 pr-10 h-10 text-xs bg-background rounded-lg border-slate-200 animate-none"
+                      />
+                      {globalSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setGlobalSearch('')}
+                          className="absolute right-2.5 top-3 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+                          title="Apagar busca"
+                        >
+                          <Eraser className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por papel</Label>
+                    <Select value={globalRoleFilter} onValueChange={(val: "all" | "nurse" | "technician") => setGlobalRoleFilter(val)}>
+                      <SelectTrigger className="h-10 text-xs rounded-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todo Corpo Assistencial</SelectItem>
+                        <SelectItem value="nurse">Enfermeiro Liderança</SelectItem>
+                        <SelectItem value="technician">Técnico de Enfermagem</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold uppercase text-slate-500">Filtrar por escala</Label>
+                    <Select value={globalShiftFilter} onValueChange={(val) => setGlobalShiftFilter(val)}>
+                      <SelectTrigger className="h-10 text-xs rounded-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as Escalas</SelectItem>
+                        {shifts.map((s) => {
+                          let icon = <Sun className="w-3 h-3 inline-block mr-1.5 text-amber-500 fill-amber-500" />;
+                          if (s.id === "rt_lideranca") icon = <Briefcase className="w-3 h-3 inline-block mr-1.5 text-slate-500" />;
+                          else if (s.id.includes("noturno")) icon = <MoonStar className="w-3 h-3 inline-block mr-1.5 text-slate-800 fill-slate-800 dark:text-slate-200 dark:fill-slate-200" />;
                           return (
-                            <button
-                              key={group.id}
-                              onClick={() => setGlobalShiftFilter(group.id)}
-                              className={cn(
-                                "flex flex-col items-start p-2.5 rounded-xl border transition-all text-left min-w-[120px] shadow-sm hover:-translate-y-0.5",
-                                isSelected 
-                                  ? "border-blue-500 bg-blue-50/60 dark:bg-blue-900/20 ring-1 ring-blue-500/20" 
-                                  : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-                              )}
-                            >
-                              <span className={cn("text-xs font-bold", isSelected ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300")}>
-                                {group.name.replace(/Plantão/g, "").trim()}
-                              </span>
-                              <span className="text-[9px] flex items-center gap-1.5 mt-1 text-slate-500 font-bold tracking-wider">
-                                <span className={cn("w-1.5 h-1.5 rounded-full", dotColor)}></span>
-                                Equipe Conforme
-                              </span>
-                            </button>
+                            <SelectItem key={s.id} value={s.id}>
+                              <div className="flex items-center">
+                                {icon} {s.name}
+                              </div>
+                            </SelectItem>
                           );
                         })}
-                      </div>
-                    </div>
-
-                    {/* GREEN BANNER */}
-                    <div className="bg-emerald-50/80 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm">
-                       <div className="flex items-center gap-2 font-black text-xs text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
-                         ✅ ESCALA PERFEITAMENTE EQUILIBRADA
-                       </div>
-                       <div className="text-[10px] mt-1 ml-6 text-emerald-600/90 dark:text-emerald-500/90 font-semibold">
-                         O número de folgas simultâneas respeita o teto de conformidade clínica da UPA.
-                       </div>
-                    </div>
-
-                    {/* INTERACTIVE FILTERS ROW */}
-                    <div className="flex items-center gap-3 pt-1">
-                      <div className="relative flex-1 max-w-md">
-                        <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-2.5" />
-                        <Input
-                          placeholder="Filtrar nesta lista..."
-                          value={globalSearch}
-                          onChange={(e) => setGlobalSearch(e.target.value)}
-                          className="pl-9 pr-10 h-9 text-xs bg-white dark:bg-slate-950 rounded-lg border-slate-200 shadow-sm"
-                        />
-                        {globalSearch && (
-                          <button type="button" onClick={() => setGlobalSearch('')} className="absolute right-2.5 top-2.5 text-pink-500 hover:text-pink-600 transition-colors">
-                            <Eraser className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <Select value={globalRoleFilter} onValueChange={(val: "all" | "nurse" | "technician") => setGlobalRoleFilter(val)}>
-                        <SelectTrigger className="h-9 text-xs rounded-lg w-[160px] bg-white shadow-sm border-slate-200">
-                          <SelectValue placeholder="Papel" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os Cargos</SelectItem>
-                          <SelectItem value="nurse">Enfermeiros</SelectItem>
-                          <SelectItem value="technician">Técnicos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -3978,8 +3954,41 @@ function EscalaControl() {
           {/* R. DETAILED ACTIVE SHIFT COMPLIANCE ENGINE & ROSTER */}
           <div className="lg:col-span-7 space-y-4">
             
-                        {/* SHIFT SELECTION BUTTONS (HORIZONTAL) */}
-            <div className="space-y-3 mb-6">
+                        {/* AUDIT STATUS INDICATOR */}
+            {shiftStats.isAnyRuleBreached ? (
+              <div className="p-4 rounded-xl bg-amber-500/[0.04] dark:bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex gap-2">
+                  <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h5 className="font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+                      Limite de Cobertura de Equipe Excedido! (Plantão Crítico)
+                    </h5>
+                    <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                      Há mais profissionais folgando simultaneamente do que o recomendado ({shiftStats.techsOff} Técnicos [Max 3] ou {shiftStats.nursesOff} Enfermeiros [Max 1]).
+                    </p>
+                  </div>
+                </div>
+                
+                <Badge className="bg-amber-200 text-amber-800 dark:bg-amber-950 dark:text-amber-300 pointer-events-none self-start sm:self-center">
+                  Bypass Operacional Necessário
+                </Badge>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-emerald-500/[0.03] dark:bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-xs">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <h5 className="font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                    Escala Perfeitamente Equilibrada
+                  </h5>
+                  <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                    O número de folgas simultâneas respeita o teto de conformidade clínica da UPA.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* SHIFT SELECTION BUTTONS (HORIZONTAL) */}
+            <div className="space-y-3 mb-6 mt-4">
               <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
                 👥 SELECIONE A EQUIPE DE PLANTÃO
               </div>
@@ -4014,39 +4023,6 @@ function EscalaControl() {
               </div>
             </div>
 
-            {/* AUDIT STATUS INDICATOR */}
-            {shiftStats.isAnyRuleBreached ? (
-              <div className="p-4 rounded-xl bg-amber-500/[0.04] dark:bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex gap-2">
-                  <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h5 className="font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">
-                      Limite de Cobertura de Equipe Excedido! (Plantão Crítico)
-                    </h5>
-                    <p className="text-slate-600 dark:text-slate-400 mt-0.5">
-                      Há mais profissionais folgando simultaneamente do que o recomendado ({shiftStats.techsOff} Técnicos [Max 3] ou {shiftStats.nursesOff} Enfermeiros [Max 1]).
-                    </p>
-                  </div>
-                </div>
-                
-                <Badge className="bg-amber-200 text-amber-800 dark:bg-amber-950 dark:text-amber-300 pointer-events-none self-start sm:self-center">
-                  Bypass Operacional Necessário
-                </Badge>
-              </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-emerald-500/[0.03] dark:bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-xs">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <div>
-                  <h5 className="font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
-                    Escala Perfeitamente Equilibrada
-                  </h5>
-                  <p className="text-slate-600 dark:text-slate-400 mt-0.5">
-                    O número de folgas simultâneas respeita o teto de conformidade clínica da UPA.
-                  </p>
-                </div>
-              </div>
-            )}
-
             <Card className="bg-card border border-border shadow-sm rounded-xl">
               <CardHeader className="pb-3 border-b border-border/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -4079,57 +4055,7 @@ function EscalaControl() {
                     )}
                   </div>
 
-                  {/* Add dialog */}
-                  <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 font-bold gap-1 rounded-lg text-white">
-                        <UserPlus className="h-3.5 w-3.5" /> Novo
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle className="uppercase font-black tracking-tight">Adicionar Profissional ao Quadro</DialogTitle>
-                        <DialogDescription className="text-xs">
-                          Insira as credenciais para cadastrar na base de revezamento de escalas.
-                        </DialogDescription>
-                      </DialogHeader>
 
-                      <form onSubmit={handleAddNewStaff} className="space-y-4 pt-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs font-bold uppercase text-slate-500">Nome Completo</Label>
-                          <Input 
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            placeholder="Ex: Enf. Patrícia Albuquerque" 
-                            className="text-sm rounded-lg"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-xs font-bold uppercase text-slate-500">Cargo de Atuação</Label>
-                          <Select value={newRole} onValueChange={(val: "nurse" | "technician") => setNewRole(val)}>
-                            <SelectTrigger className="text-sm rounded-lg bg-background">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="technician">Técnico de Enfermagem</SelectItem>
-                              <SelectItem value="nurse">Enfermeiro Liderança</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <DialogFooter className="pt-2">
-                          <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="h-10 text-xs rounded-lg font-bold">
-                            Voltar
-                          </Button>
-                          <Button type="submit" className="h-10 text-xs bg-indigo-600 hover:bg-indigo-700 font-bold rounded-lg text-white">
-                            Adicionar & Confirmar
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
                 </div>
               </CardHeader>
 
@@ -4169,7 +4095,11 @@ function EscalaControl() {
                           </TableCell>
                           <TableCell className="py-3">
                             {(() => {
-                              const statusForDay = (member.days && member.days[String(selectedDay)]) || (member.absence_status && member.absence_status !== "none" ? member.absence_status : (member.status === "working" ? "P" : "F"));
+                              const explicitDay = member.days && member.days[String(selectedDay)];
+                              const globalAbsence = member.absence_status && member.absence_status !== "none" ? member.absence_status : null;
+                              
+                              // A Licença/Férias Global sobrepõe o dia específico se ele for apenas P ou F.
+                              const statusForDay = globalAbsence || explicitDay || (member.status === "working" ? "P" : "F");
                               
                               if (statusForDay === "F") {
                                 return (
@@ -4319,18 +4249,36 @@ function EscalaControl() {
                       placeholder="Digite o nome do profissional..."
                       value={collabSearchQuery}
                       onChange={(e) => {
-                        const val = e.target.value;
+                        let val = e.target.value;
+                        val = val.replace(/\w\S*/g, (txt) => {
+                          if (["da", "de", "do", "das", "dos", "e"].includes(txt.toLowerCase())) return txt.toLowerCase();
+                          return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+                        });
+                        val = val.charAt(0).toUpperCase() + val.slice(1);
                         setCollabSearchQuery(val);
                         if (val.trim().length >= 2) {
-                          const matches = allProfessionals.filter(p => p.name.toLowerCase().includes(val.toLowerCase().trim()));
+                          const valQ = normalizeSearch(val);
+                          const matches = allProfessionals.filter(p => normalizeSearch(p.name).includes(valQ));
                           if (matches.length > 0) {
                             setSelectedCollabId(matches[0].id);
                             setCollabActiveShiftId(matches[0].shiftId);
                           }
                         }
                       }}
-                      className="h-10 pl-9 text-xs bg-background border-slate-200 dark:border-slate-800 rounded-lg shadow-sm"
+                      className="h-10 pl-9 pr-10 text-xs bg-background border-slate-200 dark:border-slate-800 rounded-lg shadow-sm"
                     />
+                    {collabSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCollabSearchQuery('');
+                        }}
+                        className="absolute right-3 top-3 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+                        title="Apagar busca"
+                      >
+                        <Eraser className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -4356,15 +4304,13 @@ function EscalaControl() {
                     </SelectTrigger>
                     <SelectContent>
                       {shifts.map((group) => {
-                        let icon = "👥";
-                        if (group.id === "rt_lideranca") icon = "💼";
-                        else if (group.id.includes("noturno")) icon = "🌙";
-                        else icon = "☀️";
+                        let icon = <Sun className="w-3.5 h-3.5 inline-block mr-1.5 text-amber-500 fill-amber-500" />;
+                        if (group.id === "rt_lideranca") icon = <Briefcase className="w-3.5 h-3.5 inline-block mr-1.5 text-slate-500" />;
+                        else if (group.id.includes("noturno")) icon = <MoonStar className="w-3.5 h-3.5 inline-block mr-1.5 text-slate-800 fill-slate-800 dark:text-slate-200 dark:fill-slate-200" />;
                         return (
                           <SelectItem key={group.id} value={group.id} className="text-xs font-semibold cursor-pointer">
-                            <div className="flex items-center gap-1.5">
-                              <span>{icon}</span>
-                              <span>{group.name.replace(/Plantão|RT & Liderança/g, "").trim()} ({group.staff.length} Profissionais)</span>
+                            <div className="flex items-center">
+                              {icon} {group.name.replace(/Plantão|RT & Liderança/g, "").trim()} ({group.staff.length} Profissionais)
                             </div>
                           </SelectItem>
                         );
@@ -4579,6 +4525,14 @@ function EscalaControl() {
                                       isDuty: false,
                                       bgClass: "bg-red-500/[0.06] border-red-500/25 text-red-700 dark:text-red-400 hover:bg-red-100/30 font-bold",
                                       badgeClass: "bg-red-500/15 text-red-650 dark:text-red-400"
+                                    };
+                                  case "FER":
+                                  case "V":
+                                    return { 
+                                      label: "FER", 
+                                      isDuty: false,
+                                      bgClass: "bg-orange-500/[0.06] border-orange-500/25 text-orange-700 dark:text-orange-400 hover:bg-orange-100/30 font-bold",
+                                      badgeClass: "bg-orange-500/15 text-orange-700 dark:text-orange-400 font-black"
                                     };
                                   case "off-duty":
                                   default:

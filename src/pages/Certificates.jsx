@@ -15,7 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, normalizeSearch } from "@/lib/utils";
 import { getCurrentMonthYearString, getCurrentMonthString } from "@/lib/utils";
 import { Plus, FileHeart, X, Search, Calendar, Trash2, HeartPulse, ShieldAlert, Award, Stethoscope, Percent, Pencil, CheckCircle2, Save, RefreshCw, Copy, Printer, User, Eraser } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -30,11 +30,7 @@ const typeLabels = {
 
 const COLORS = ['hsl(173,58%,39%)', 'hsl(262,52%,47%)', 'hsl(199,89%,48%)', 'hsl(43,74%,66%)', 'hsl(0,72%,51%)'];
 
-// Helper function to normalize strings for accent-insensitive comparison
-const normalizeName = (name) => {
-  if (!name) return '';
-  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
-};
+// Helper removed, using global normalizeSearch from utils.
 
 const calculateEndDate = (startDateStr, days) => {
   if (!startDateStr) return '';
@@ -403,10 +399,11 @@ export default function Certificates() {
 
   // Filtered List
   const filteredCertificates = useMemo(() => {
-    return certificates.filter(c => 
-      c.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.cid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.notes?.toLowerCase().includes(searchQuery.toLowerCase())
+    const q = normalizeSearch(searchQuery);
+    return certificates.filter(c =>
+      normalizeSearch(c.employee_name).includes(q) ||
+      normalizeSearch(c.cid).includes(q) ||
+      normalizeSearch(c.notes).includes(q)
     );
   }, [certificates, searchQuery]);
 
@@ -569,10 +566,10 @@ export default function Certificates() {
                       <AnimatePresence>
                         {isEmpFocused && (
                           (() => {
-                            const queryLower = (form.employee_name || '').trim().toLowerCase();
+                            const queryLower = normalizeSearch(form.employee_name);
                             const filtered = employees.filter(e => {
                               if (!queryLower) return true;
-                              const nameLower = e.name?.toLowerCase() || '';
+                              const nameLower = normalizeSearch(e.name);
                               const words = nameLower.split(/\s+/);
                               return words.some(w => w.startsWith(queryLower));
                             });

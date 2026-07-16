@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserX, UserCheck, EyeOff, Pencil, UserPlus, X, Save, RefreshCw, Search, FileHeart, Filter, Clock, Users, Activity, FileText, Sun, Trash2, Eraser } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { formatName, formatPhone, formatCPF, validateCPF } from '@/lib/utils';
+import { formatName, formatPhone, formatCPF, validateCPF, normalizeSearch } from '@/lib/utils';
 
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusColors = { active: 'bg-success/20 text-success border-success/30', inactive: 'bg-destructive/20 text-destructive border-destructive/30', on_leave: 'bg-warning/20 text-warning border-warning/30' };
@@ -210,11 +210,11 @@ export default function Management() {
   // Filter & Search Logic
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
-      // Search check
+      const q = normalizeSearch(searchQuery);
       const matchesSearch = 
-        emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        emp.coren?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.sector?.toLowerCase().includes(searchQuery.toLowerCase());
+        normalizeSearch(emp.name).includes(q) || 
+        normalizeSearch(emp.coren).includes(q) ||
+        normalizeSearch(emp.sector).includes(q);
       
       if (!matchesSearch) return false;
 
