@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, FileHeart, AlertTriangle, Activity, X, ArrowRight, CheckCircle2, Shield, CalendarRange, MapPin, History, Calendar, Pencil, UserPlus, FileText, Lock } from 'lucide-react';
+import { getCurrentMonthYearString } from "@/lib/utils";
 import StatCard from '@/components/dashboard/StatCard';
 import ShiftChart from '@/components/dashboard/ShiftChart';
 import DailyStaffChart from '@/components/dashboard/DailyStaffChart';
@@ -124,7 +125,7 @@ export default function Dashboard() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          UPA Zilda Arns — Escala de Enfermagem · Junho 2026
+          UPA Zilda Arns — Escala de Enfermagem · {getCurrentMonthYearString()}
         </p>
       </motion.div>
 
@@ -273,7 +274,7 @@ export default function Dashboard() {
             <InfoRow label="Endereço" value="Rua Poços de Calda nº 66 - Jd. Santo Eduardo" />
             <InfoRow label="Cidade" value="Embu das Artes - SP" />
             <InfoRow label="CNES" value="7868499" />
-            <InfoRow label="Mês/Ano" value="Junho 2026" />
+            <InfoRow label="Mês/Ano" value={getCurrentMonthYearString()} />
             <InfoRow label="Resp. Técnica" value="Renata Ap. Bueno Pereira - COREN 484843" />
             <InfoRow label="Ger. Enfermagem" value="Paula Daniela Maciel - COREN 540838" />
             <InfoRow label="Turnos" value="Diurno A/B, Noturno A/B" />
@@ -465,7 +466,7 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     {certificates.length === 0 ? (
                       <div className="text-center py-6 space-y-2">
-                        <p className="text-xs text-muted-foreground">Nenhum atestado médico registrado neste mês de Junho 2026.</p>
+                        <p className="text-xs text-muted-foreground">Nenhum atestado médico registrado neste mês de {getCurrentMonthYearString()}.</p>
                       </div>
                     ) : (
                       <div className="space-y-3">

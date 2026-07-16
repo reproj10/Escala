@@ -15,8 +15,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { getCurrentMonthYearString, getCurrentMonthString } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { Plus, FileHeart, X, Search, Calendar, Trash2, HeartPulse, ShieldAlert, Award, Stethoscope, Percent, Pencil, CheckCircle2, Save, RefreshCw, Copy, Printer, User } from 'lucide-react';
+import { Plus, FileHeart, X, Search, Calendar, Trash2, HeartPulse, ShieldAlert, Award, Stethoscope, Percent, Pencil, CheckCircle2, Save, RefreshCw, Copy, Printer, User, Eraser } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 
@@ -485,7 +486,7 @@ export default function Vacations() {
           label="Total Ocorrências" 
           value={vacations.length} 
           color="teal" 
-          subtitle="Registros de Junho" 
+          subtitle={`Registros de ${getCurrentMonthString()}`} 
           onClick={() => setActiveModal('total')}
         />
         <StatCard 
@@ -555,8 +556,18 @@ export default function Vacations() {
                         onFocus={() => setIsEmpFocused(true)}
                         onBlur={() => setTimeout(() => setIsEmpFocused(false), 200)}
                         autoCapitalize="words"
-                        className="h-9 text-xs"
+                        className="h-9 text-xs pr-10"
                       />
+                      {form.employee_name && (
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, employee_name: '' })}
+                          className="absolute right-2.5 top-7 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+                          title="Apagar nome"
+                        >
+                          <Eraser className="h-4 w-4" />
+                        </button>
+                      )}
                       <AnimatePresence>
                         {isEmpFocused && (
                           (() => {
@@ -608,6 +619,7 @@ export default function Vacations() {
                       <Label className="text-[10px] uppercase font-bold">Tipo de Férias</Label>
                       <select 
                         required
+                        className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         value={form.type} 
                         onChange={e => {
                           const newType = e.target.value;
@@ -718,8 +730,17 @@ export default function Vacations() {
               placeholder="Pesquisar férias por nome..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full h-9 pl-9 pr-10 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+                title="Apagar busca"
+              >
+                <Eraser className="h-4 w-4" />
+              </button>
+            )}
           </div>
           
           <div className="flex items-center gap-3">
@@ -950,6 +971,7 @@ export default function Vacations() {
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase font-bold">Tipo de Afastamento</Label>
                     <select 
+                      className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                       value={editingVacation.type} 
                       onChange={e => {
                         const newType = e.target.value;
@@ -1183,7 +1205,7 @@ export default function Vacations() {
                 {/* A. TOTAL OCORRÊNCIAS */}
                 {activeModal === 'total' && (
                   <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">Distribuição total das ocorrências ativas em Junho 2026:</p>
+                    <p className="text-xs text-muted-foreground">Distribuição total das ocorrências ativas em {getCurrentMonthYearString()}:</p>
                     <div className="space-y-2">
                       {vacTypeData.map((item, i) => (
                         <div key={item.name} className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg border border-border">

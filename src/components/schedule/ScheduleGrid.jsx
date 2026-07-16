@@ -3,6 +3,7 @@ const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, AlertTriangle, Calendar } from 'lucide-react';
+import { getCurrentMonthYearString } from "@/lib/utils";
 import { useScaleSettings } from '@/hooks/useScaleSettings';
 
 // Hardcoded fallback options in case hook is not ready
@@ -324,7 +325,7 @@ export default function ScheduleGrid({ entries, employees, daysInMonth, month, y
                 </span>
               </td>
               <td colSpan={daysInMonth + 1} className="px-3 py-1.5 text-[10px] text-primary/70 font-medium border-r border-border">
-                Escala 12×36 · Junho 2026 · UPA Zilda Arns
+                Escala 12×36 · {getCurrentMonthYearString()} · UPA Zilda Arns
               </td>
             </tr>
             <tr className="bg-muted/50">

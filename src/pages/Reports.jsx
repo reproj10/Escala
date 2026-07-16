@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { FileText, Users, CalendarDays, Clock, TrendingUp, Percent, X } from 'lucide-react';
+import { getCurrentMonthYearString } from "@/lib/utils";
 
 const COLORS = ['hsl(173,58%,39%)', 'hsl(199,89%,48%)', 'hsl(262,52%,47%)', 'hsl(43,74%,66%)', 'hsl(0,72%,51%)', 'hsl(142,71%,45%)', 'hsl(38,92%,50%)'];
 
@@ -274,7 +275,7 @@ export default function Reports() {
                 {/* 2. ENTRADAS NA ESCALA */}
                 {activeModal === 'entradas' && (
                   <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">Resumo das escalas de plantão geradas para Junho 2026:</p>
+                    <p className="text-xs text-muted-foreground">Resumo das escalas de plantão geradas para {getCurrentMonthYearString()}:</p>
                     <div className="bg-muted/40 p-4 rounded-xl border border-border space-y-2">
                       <div className="flex justify-between text-xs">
                         <span>Total de Escalas Geradas:</span>
@@ -286,7 +287,7 @@ export default function Reports() {
                       </div>
                       <div className="flex justify-between text-xs">
                         <span>Mes de Referência:</span>
-                        <span className="font-bold">Junho 2026</span>
+                        <span className="font-bold">{getCurrentMonthYearString()}</span>
                       </div>
                     </div>
                   </div>
@@ -315,7 +316,7 @@ export default function Reports() {
                 {/* 4. TOTAL HORAS/MÊS */}
                 {activeModal === 'horas' && (
                   <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">Consolidado de horas produtivas trabalhadas por turno em Junho 2026:</p>
+                    <p className="text-xs text-muted-foreground">Consolidado de horas produtivas trabalhadas por turno em {getCurrentMonthYearString()}:</p>
                     <div className="space-y-2">
                       {shiftHours.map(s => (
                         <div key={s.name} className="flex items-center justify-between p-2 bg-muted/30 border border-border rounded-lg">

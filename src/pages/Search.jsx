@@ -8,8 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search as SearchIcon, User, Calendar, Clock, X, HeartPulse, ShieldCheck, Award, Users, Activity, FileText, UserX, Sun, History, Pencil, UserPlus, Lock } from 'lucide-react';
-import { formatName } from '@/lib/utils';
+import { Search as SearchIcon, User, Calendar, Clock, X, HeartPulse, ShieldCheck, Award, Users, Activity, FileText, UserX, Sun, History, Pencil, UserPlus, Lock, Eraser } from 'lucide-react';
+import { formatName, getCurrentMonthYearString } from '@/lib/utils';
 
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusLabels = { active: 'Ativo', inactive: 'Inativo', on_leave: 'Afastado' };
@@ -22,8 +22,13 @@ const statusStyleMap = {
   FA: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Folga Abonada' },
   AU: { bg: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/50', label: 'Ausência' },
   AT: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Atestado Médico' },
-  LM: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Maternidade' },
+  LM: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Médica' },
+  MAT: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Maternidade' },
   V: { bg: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/50', label: 'Férias' },
+  FER: { bg: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/50', label: 'Férias' },
+  LTS: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Licença Trat. Saúde' },
+  LS: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Licença Saúde' },
+  SUS: { bg: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/50', label: 'Suspensão' },
   TP: { bg: 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/50', label: 'Troca de Plantão' },
   FI: { bg: 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/50', label: 'Falta Injustificada' },
 };
@@ -85,7 +90,12 @@ export default function SearchPage() {
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['schedules'],
-    queryFn: () => db.entities.ScheduleEntry.list('-created_date', 200),
+    queryFn: () => db.entities.ScheduleEntry.list('-created_date', 400),
+  });
+
+  const { data: certificates = [] } = useQuery({
+    queryKey: ['medical_certificates'],
+    queryFn: () => db.entities.MedicalCertificate.list(),
   });
 
   const { data: auditLogs = [] } = useQuery({
@@ -181,7 +191,7 @@ export default function SearchPage() {
         initial={{ opacity: 0, y: -5 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ delay: 0.1 }}
-        className="flex w-full overflow-x-auto gap-3 pb-3 pt-1 scrollbar-none lg:grid lg:grid-cols-6 lg:overflow-visible"
+        className="flex w-full overflow-x-auto gap-3 pb-3 pt-1 scrollbar-none lg:grid lg:grid-cols-4 lg:overflow-visible"
       >
         {/* Card 1: Total de Colaboradores (Remove filtros) */}
         <Card 
@@ -207,53 +217,6 @@ export default function SearchPage() {
           )}
         </Card>
 
-        {/* Card 2: Plantões Agendados */}
-        <Card 
-          onClick={() => setActiveFilter(activeFilter === 'has_shifts' ? null : 'has_shifts')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-success/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
-            activeFilter === 'has_shifts' 
-              ? 'border-success ring-2 ring-success/20 bg-success/[0.03]' 
-              : 'border-border/60 hover:border-success/30'
-          }`}
-        >
-          <CardContent className="p-3 flex items-center justify-between h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Plantões</span>
-              <h2 className="text-xl font-black text-success">{totalPlantões} <span className="text-[10px] font-normal text-muted-foreground">no mês</span></h2>
-              <p className="text-[9px] text-muted-foreground font-semibold truncate">Média { (totalPlantões / (totalEmployees || 1)).toFixed(1) } / colab</p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-success/10 flex items-center justify-center text-success flex-shrink-0">
-              <Activity className="h-4 w-4" />
-            </div>
-          </CardContent>
-          {activeFilter === 'has_shifts' && (
-            <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-success" />
-          )}
-        </Card>
-
-        {/* Card 3: Distribuição de Turno (Diurnos) */}
-        <Card 
-          onClick={() => setActiveFilter(activeFilter === 'diurno' ? null : 'diurno')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-warning/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
-            activeFilter === 'diurno' 
-              ? 'border-warning ring-2 ring-warning/20 bg-warning/[0.03]' 
-              : 'border-border/60 hover:border-warning/30'
-          }`}
-        >
-          <CardContent className="p-3 flex items-center justify-between h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Turno Diurno</span>
-              <h2 className="text-xl font-black text-foreground">D: {diurnoCount} <span className="text-[10px] font-normal text-muted-foreground">/ N: {noturnoCount}</span></h2>
-              <p className="text-[9px] text-muted-foreground font-semibold truncate">Filtrar equipe diurna</p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center text-warning flex-shrink-0">
-              <Clock className="h-4 w-4" />
-            </div>
-          </CardContent>
-          {activeFilter === 'diurno' && (
-            <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-warning" />
-          )}
-        </Card>
 
         {/* Card 4: Atestados Médicos */}
         <Card 
@@ -332,14 +295,27 @@ export default function SearchPage() {
         <div className="lg:col-span-3 space-y-6">
           <div className="relative max-w-lg z-50">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Digite para pesquisar..."
-          value={query}
-          onChange={e => setQuery(formatName(e.target.value))}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setTimeout(() => setIsFocused(false), 200)} // Allow onMouseDown click to register first!
-          className="pl-10"
-        />
+          <Input
+            placeholder="Digite para pesquisar..."
+            value={query}
+            onChange={e => setQuery(formatName(e.target.value))}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+            className="pl-10 pr-10"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setSearchParams({}, { replace: true });
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+              title="Apagar busca"
+            >
+              <Eraser className="h-4 w-4" />
+            </button>
+          )}
 
         {/* Auto preenchimento / Autocomplete floating list */}
         <AnimatePresence>
@@ -393,6 +369,50 @@ export default function SearchPage() {
             const totalP = schedule ? Object.values(schedule.days || {}).filter(v => v === 'P').length : 0;
             const totalF = schedule ? Object.values(schedule.days || {}).filter(v => v === 'F').length : 0;
 
+            const now = new Date();
+            const currentMonth = now.getMonth() + 1;
+            const currentYear = now.getFullYear();
+
+            let activeCertificate = null;
+            if (certificates && certificates.length > 0) {
+              activeCertificate = certificates.find(c => {
+                if (c.employee_name?.trim() !== emp.name?.trim()) return false;
+                if (!c.start_date) return false;
+                const start = new Date(c.start_date);
+                const end = c.end_date ? new Date(c.end_date) : new Date(start.getTime() + (c.days || 1) * 24 * 60 * 60 * 1000);
+                
+                const monthStart = new Date(currentYear, currentMonth - 1, 1);
+                const monthEnd = new Date(currentYear, currentMonth, 0);
+                
+                return start <= monthEnd && end >= monthStart;
+              });
+            }
+
+            let inferredAbsence = emp.status || 'active';
+            
+            if (activeCertificate) {
+              const type = activeCertificate.type || '';
+              inferredAbsence = type.split('_')[0]; // FER_30 -> FER
+              if (inferredAbsence === 'Med') inferredAbsence = 'LM';
+            } else if (emp.absence_status && emp.absence_status !== 'none') {
+              inferredAbsence = emp.absence_status;
+            } else if (schedule) {
+              const strDays = JSON.stringify(schedule.days || {}).toUpperCase();
+              const match = strDays.match(/[:"]\s*(LM|FER|LTS|LS|MAT|AT|SUS)\s*([,}]|$)/);
+              if (match) {
+                inferredAbsence = match[1];
+              }
+            }
+
+            let badgeLabel = statusLabels[emp.status || 'active'];
+            let badgeColor = statusColors[emp.status || 'active'];
+            
+            if (['LM', 'FER', 'LTS', 'LS', 'MAT', 'AT', 'SUS'].includes(inferredAbsence)) {
+              badgeLabel = `Afastado (${inferredAbsence})`;
+              const style = statusStyleMap[inferredAbsence];
+              badgeColor = style ? style.bg : 'bg-warning/20 text-warning';
+            }
+
             return (
               <motion.div
                 key={emp.id}
@@ -425,8 +445,8 @@ export default function SearchPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/40 justify-between">
-                          <Badge className={`text-[10px] font-semibold ${statusColors[emp.status || 'active']}`}>
-                            {statusLabels[emp.status || 'active']}
+                          <Badge className={`text-[10px] font-semibold ${badgeColor}`}>
+                            {badgeLabel}
                           </Badge>
                           <span className="text-[10px] font-bold text-muted-foreground">
                             P: <span className="text-success">{totalP}</span> · F: <span className="text-muted-foreground/80">{totalF}</span>
@@ -583,6 +603,22 @@ export default function SearchPage() {
             return acc;
           }, {}) : {};
 
+          const now = new Date();
+          const currentMonth = now.getMonth() + 1;
+          const currentYear = now.getFullYear();
+          let activeCertificate = null;
+          if (certificates && certificates.length > 0) {
+            activeCertificate = certificates.find(c => {
+              if (c.employee_name?.trim() !== selectedEmployee.name?.trim()) return false;
+              if (!c.start_date) return false;
+              const start = new Date(c.start_date);
+              const end = c.end_date ? new Date(c.end_date) : new Date(start.getTime() + (c.days || 1) * 24 * 60 * 60 * 1000);
+              const monthStart = new Date(currentYear, currentMonth - 1, 1);
+              const monthEnd = new Date(currentYear, currentMonth, 0);
+              return start <= monthEnd && end >= monthStart;
+            });
+          }
+
           return (
             <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
               <motion.div
@@ -647,7 +683,7 @@ export default function SearchPage() {
                 <div className="space-y-1">
                   <h3 className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4 text-success" />
-                    Espelho da Escala — Junho 2026
+                    Espelho da Escala — {getCurrentMonthYearString()}
                   </h3>
                   <p className="text-[10px] text-muted-foreground">Distribuição de plantões e folgas mensais no calendário</p>
                 </div>
@@ -665,7 +701,39 @@ export default function SearchPage() {
                   <div className="grid grid-cols-7 gap-1 text-center">
                     {calendarDays.map((day, idx) => {
                       if (!day) return <div key={`empty-${idx}`} className="aspect-square" />;
-                      const val = schedule?.days?.[String(day)] || '';
+                      
+                      let val = schedule?.days?.[String(day)] || '';
+                      
+                      const now = new Date();
+                      const currentMonth = now.getMonth() + 1;
+                      const currentYear = now.getFullYear();
+
+                      // Auto-fill logic from medical certificates (Source of Truth)
+                      if (activeCertificate) {
+                         const targetDate = new Date(currentYear, currentMonth - 1, day);
+                         const start = new Date(activeCertificate.start_date);
+                         const end = activeCertificate.end_date ? new Date(activeCertificate.end_date) : new Date(start.getTime() + (activeCertificate.days || 1) * 24 * 60 * 60 * 1000);
+                         
+                         start.setHours(0,0,0,0);
+                         end.setHours(23,59,59,999);
+                         
+                         if (targetDate >= start && targetDate <= end) {
+                            const type = activeCertificate.type || '';
+                            val = type.split('_')[0];
+                            if (val === 'Med') val = 'LM';
+                         }
+                      } else if (selectedEmployee.absence_status && selectedEmployee.absence_status !== 'none') {
+                         val = selectedEmployee.absence_status;
+                      }
+                      
+                      // Fallback auto-fill logic for continuous leaves not in certificates (e.g. legacy)
+                      if (!val || val === 'F' || val.trim() === '') {
+                        const strDays = JSON.stringify(schedule?.days || {}).toUpperCase();
+                        const match = strDays.match(/[:"]\s*(LM|FER|LTS|LS|MAT|SUS)\s*([,}]|$)/);
+                        if (match) {
+                          val = match[1];
+                        }
+                      }
                       const style = statusStyleMap[val];
                       const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 

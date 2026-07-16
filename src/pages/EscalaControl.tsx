@@ -61,7 +61,8 @@ import {
   MoreHorizontal,
   Edit2,
   ArrowRightLeft,
-  Stethoscope
+  Stethoscope,
+  Eraser
 } from "lucide-react";
 import { 
   Dialog, 
@@ -2898,8 +2899,18 @@ function EscalaControl() {
                         placeholder="Filtrar por nome do colaborador..."
                         value={globalSearch}
                         onChange={(e) => setGlobalSearch(e.target.value)}
-                        className="pl-9 h-10 text-xs bg-background rounded-lg border-slate-200 animate-none"
+                        className="pl-9 pr-10 h-10 text-xs bg-background rounded-lg border-slate-200 animate-none"
                       />
+                      {globalSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setGlobalSearch('')}
+                          className="absolute right-2.5 top-3 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+                          title="Apagar busca"
+                        >
+                          <Eraser className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -4047,8 +4058,18 @@ function EscalaControl() {
                       placeholder="Filtrar nesta lista..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-8 max-w-[180px] pl-8 text-xs bg-background rounded-lg border-slate-200"
+                      className="h-8 max-w-[180px] pl-8 pr-8 text-xs bg-background rounded-lg border-slate-200"
                     />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2 top-2 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+                        title="Apagar busca"
+                      >
+                        <Eraser className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Add dialog */}

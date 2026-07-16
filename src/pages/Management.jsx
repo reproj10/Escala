@@ -9,13 +9,31 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserX, UserCheck, EyeOff, Pencil, UserPlus, X, Save, RefreshCw, Search, FileHeart, Filter, Clock, Users, Activity, FileText, Sun, Trash2 } from 'lucide-react';
+import { UserX, UserCheck, EyeOff, Pencil, UserPlus, X, Save, RefreshCw, Search, FileHeart, Filter, Clock, Users, Activity, FileText, Sun, Trash2, Eraser } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { formatName, formatPhone, formatCPF, validateCPF } from '@/lib/utils';
 
 const shiftLabels = { diurno_a: 'Diurno A', diurno_b: 'Diurno B', noturno_a: 'Noturno A', noturno_b: 'Noturno B' };
 const statusColors = { active: 'bg-success/20 text-success border-success/30', inactive: 'bg-destructive/20 text-destructive border-destructive/30', on_leave: 'bg-warning/20 text-warning border-warning/30' };
 const statusLabels = { active: 'Ativo', inactive: 'Inativo', on_leave: 'Afastado' };
+
+const statusStyleMap = {
+  P: { bg: 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-200/50', label: 'Plantão' },
+  F: { bg: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200', label: 'Folga Regulamentar' },
+  FE: { bg: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/50', label: 'Folga Enfermagem' },
+  FA: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Folga Abonada' },
+  AU: { bg: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/50', label: 'Ausência' },
+  AT: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Atestado Médico' },
+  LM: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Médica' },
+  MAT: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Maternidade' },
+  V: { bg: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/50', label: 'Férias' },
+  FER: { bg: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/50', label: 'Férias' },
+  LTS: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Licença Trat. Saúde' },
+  LS: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Licença Saúde' },
+  SUS: { bg: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/50', label: 'Suspensão' },
+  TP: { bg: 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/50', label: 'Troca de Plantão' },
+  FI: { bg: 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/50', label: 'Falta Injustificada' },
+};
 
 export default function Management() {
   const { toast } = useToast();
@@ -44,7 +62,12 @@ export default function Management() {
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['schedules'],
-    queryFn: () => db.entities.ScheduleEntry.list('-created_date', 200),
+    queryFn: () => db.entities.ScheduleEntry.list('-created_date', 400),
+  });
+
+  const { data: certificates = [] } = useQuery({
+    queryKey: ['medical_certificates'],
+    queryFn: () => db.entities.MedicalCertificate.list(),
   });
 
   const totalEmployees = employees.length;
@@ -267,7 +290,7 @@ export default function Management() {
         initial={{ opacity: 0, y: -5 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ delay: 0.05 }}
-        className="flex w-full overflow-x-auto gap-3 pb-3 pt-1 scrollbar-none lg:grid lg:grid-cols-6 lg:overflow-visible"
+        className="flex w-full overflow-x-auto gap-3 pb-3 pt-1 scrollbar-none lg:grid lg:grid-cols-4 lg:overflow-visible"
       >
         {/* Card 1: Total de Colaboradores (Remove filtros) */}
         <Card 
@@ -293,53 +316,6 @@ export default function Management() {
           )}
         </Card>
 
-        {/* Card 2: Plantões Agendados */}
-        <Card 
-          onClick={() => setActiveFilter(activeFilter === 'has_shifts' ? null : 'has_shifts')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-success/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
-            activeFilter === 'has_shifts' 
-              ? 'border-success ring-2 ring-success/20 bg-success/[0.03]' 
-              : 'border-border/60 hover:border-success/30'
-          }`}
-        >
-          <CardContent className="p-3 flex items-center justify-between h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Plantões</span>
-              <h2 className="text-xl font-black text-success">{totalPlantões} <span className="text-[10px] font-normal text-muted-foreground">no mês</span></h2>
-              <p className="text-[9px] text-muted-foreground font-semibold truncate">Média { (totalPlantões / (totalEmployees || 1)).toFixed(1) } / colab</p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-success/10 flex items-center justify-center text-success flex-shrink-0">
-              <Activity className="h-4 w-4" />
-            </div>
-          </CardContent>
-          {activeFilter === 'has_shifts' && (
-            <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-success" />
-          )}
-        </Card>
-
-        {/* Card 3: Distribuição de Turno (Diurnos) */}
-        <Card 
-          onClick={() => setActiveFilter(activeFilter === 'diurno' ? null : 'diurno')}
-          className={`flex-shrink-0 w-[220px] lg:w-auto bg-gradient-to-br from-warning/5 via-transparent to-transparent shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
-            activeFilter === 'diurno' 
-              ? 'border-warning ring-2 ring-warning/20 bg-warning/[0.03]' 
-              : 'border-border/60 hover:border-warning/30'
-          }`}
-        >
-          <CardContent className="p-3 flex items-center justify-between h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Turno Diurno</span>
-              <h2 className="text-xl font-black text-foreground">D: {diurnoCount} <span className="text-[10px] font-normal text-muted-foreground">/ N: {noturnoCount}</span></h2>
-              <p className="text-[9px] text-muted-foreground font-semibold truncate">Filtrar equipe diurna</p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center text-warning flex-shrink-0">
-              <Clock className="h-4 w-4" />
-            </div>
-          </CardContent>
-          {activeFilter === 'diurno' && (
-            <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-warning" />
-          )}
-        </Card>
 
         {/* Card 4: Atestados Médicos */}
         <Card 
@@ -429,14 +405,15 @@ export default function Management() {
             placeholder="Pesquisar por nome, coren..." 
             value={searchQuery}
             onChange={e => setSearchQuery(formatName(e.target.value))}
-            className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full h-9 pl-9 pr-10 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-muted-foreground hover:text-card-foreground"
+              className="absolute right-3 top-2.5 text-pink-500 hover:text-pink-600 transition-colors cursor-pointer"
+              title="Apagar busca"
             >
-              <X className="h-4 w-4" />
+              <Eraser className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -565,9 +542,61 @@ export default function Management() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredEmployees.map(emp => (
-                  <TableRow key={emp.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-medium text-xs py-3 max-w-[200px] truncate">
+                filteredEmployees.map(emp => {
+                  const schedule = schedules.find(s => s.employee_name?.trim() === emp.name?.trim());
+                  
+                  const now = new Date();
+                  const currentMonth = now.getMonth() + 1;
+                  const currentYear = now.getFullYear();
+      
+                  let activeCertificate = null;
+                  if (certificates && certificates.length > 0) {
+                    activeCertificate = certificates.find(c => {
+                      if (c.employee_name?.trim() !== emp.name?.trim()) return false;
+                      if (!c.start_date) return false;
+                      const start = new Date(c.start_date);
+                      const end = c.end_date ? new Date(c.end_date) : new Date(start.getTime() + (c.days || 1) * 24 * 60 * 60 * 1000);
+                      
+                      const monthStart = new Date(currentYear, currentMonth - 1, 1);
+                      const monthEnd = new Date(currentYear, currentMonth, 0);
+                      
+                      return start <= monthEnd && end >= monthStart;
+                    });
+                  }
+      
+                  let inferredAbsence = emp.status || 'active';
+                  
+                  if (activeCertificate) {
+                    const type = activeCertificate.type || '';
+                    inferredAbsence = type.split('_')[0]; // FER_30 -> FER
+                    if (inferredAbsence === 'Med') inferredAbsence = 'LM';
+                  } else if (emp.absence_status && emp.absence_status !== 'none') {
+                    inferredAbsence = emp.absence_status;
+                  } else if (schedule) {
+                    const strDays = JSON.stringify(schedule.days || {}).toUpperCase();
+                    const match = strDays.match(/[:"]\s*(LM|FER|LTS|LS|MAT|AT|SUS)\s*([,}]|$)/);
+                    if (match) {
+                      inferredAbsence = match[1];
+                    }
+                  }
+      
+                  let badgeLabel = statusLabels[emp.status || 'active'];
+                  let badgeColor = statusColors[emp.status || 'active'];
+                  
+                  if (['LM', 'FER', 'LTS', 'LS', 'MAT', 'AT', 'SUS'].includes(inferredAbsence)) {
+                    const style = statusStyleMap[inferredAbsence];
+                    if (style) {
+                      badgeLabel = style.label;
+                      badgeColor = `${style.bg} ${style.border}`;
+                    } else {
+                      badgeLabel = `Afastado (${inferredAbsence})`;
+                      badgeColor = 'bg-warning/20 text-warning border-warning/30';
+                    }
+                  }
+
+                  return (
+                    <TableRow key={emp.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-medium text-xs py-3 max-w-[200px] truncate">
                       <div>
                         <p className="font-semibold text-card-foreground">{emp.name}</p>
                         <span className="text-[10px] text-muted-foreground block truncate">{emp.sector || 'Sem Setor'}</span>
@@ -597,9 +626,9 @@ export default function Management() {
                       </Select>
                     </TableCell>
                     <TableCell className="text-xs font-mono">{emp.work_hours || '-'}</TableCell>
-                    <TableCell>
-                      <Badge className={`text-[9px] font-bold border ${statusColors[emp.status || 'active']}`}>
-                        {statusLabels[emp.status || 'active']}
+                    <TableCell className="min-w-[140px]">
+                      <Badge className={`text-[9px] font-bold border truncate max-w-full ${badgeColor}`}>
+                        {badgeLabel}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-6">
@@ -681,8 +710,9 @@ export default function Management() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
+                );
+              })
+            )}
             </TableBody>
           </Table>
         </div>
