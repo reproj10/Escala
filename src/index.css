@@ -7,7 +7,7 @@
 @layer base {
   :root {
     --font-inter: 'Inter', sans-serif;
-    --background: 210 20% 98%;
+    --background: 210 33% 97%; /* Fundo levemente acinzentado para destacar os cards brancos */
     --foreground: 220 20% 10%;
     --card: 0 0% 100%;
     --card-foreground: 220 20% 10%;
@@ -23,8 +23,8 @@
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 210 15% 90%;
-    --input: 210 15% 90%;
+    --border: 214 32% 91%; /* Borda mais visível no tema claro */
+    --input: 214 32% 91%;
     --ring: 173 58% 39%;
     --chart-1: 173 58% 39%;
     --chart-2: 199 89% 48%;
@@ -92,7 +92,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-gradient-to-b from-blue-300 to-slate-900 text-foreground font-inter min-h-screen bg-no-repeat bg-fixed;
+    @apply bg-background text-foreground font-inter min-h-screen bg-no-repeat bg-fixed antialiased selection:bg-primary selection:text-primary-foreground;
   }
 }
 
