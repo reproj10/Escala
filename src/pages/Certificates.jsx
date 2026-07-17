@@ -79,7 +79,7 @@ const applyCertificateToSchedule = async (cert, employee) => {
       console.warn("Requests table not available", e);
     }
 
-    const sched = schedules.find(s => s.employee_id === employee.id || normalizeName(s.employee_name) === normalizeName(employee.name));
+    const sched = schedules.find(s => s.employee_id === employee.id || normalizeSearch(s.employee_name) === normalizeSearch(employee.name));
     
     if (sched) {
       const updatedDays = { ...(sched.days || {}) };
@@ -127,7 +127,7 @@ const revertCertificateFromSchedule = async (cert, employee) => {
   for (const key in monthsMap) {
     const { year, month, days } = monthsMap[key];
     const schedules = await db.entities.ScheduleEntry.filter({ month, year });
-    const sched = schedules.find(s => s.employee_id === employee.id || normalizeName(s.employee_name) === normalizeName(employee.name));
+    const sched = schedules.find(s => s.employee_id === employee.id || normalizeSearch(s.employee_name) === normalizeSearch(employee.name));
     
     if (sched) {
       const updatedDays = { ...(sched.days || {}) };
@@ -199,8 +199,8 @@ export default function Certificates() {
       });
 
       // Find employee accent-insensitively
-      const normCertName = normalizeName(data.employee_name);
-      const emp = employees.find(e => normalizeName(e.name) === normCertName);
+      const normCertName = normalizeSearch(data.employee_name);
+      const emp = employees.find(e => normalizeSearch(e.name) === normCertName);
       if (emp) {
         await db.entities.Employee.update(emp.id, { status: 'on_leave' });
         await applyCertificateToSchedule(created, emp);
@@ -243,8 +243,8 @@ export default function Certificates() {
       });
 
       // Find employee accent-insensitively
-      const normCertName = normalizeName(data.employee_name);
-      const emp = employees.find(e => normalizeName(e.name) === normCertName);
+      const normCertName = normalizeSearch(data.employee_name);
+      const emp = employees.find(e => normalizeSearch(e.name) === normCertName);
       if (emp) {
         await db.entities.Employee.update(emp.id, { status: 'on_leave' });
         await applyCertificateToSchedule(updated, emp);
@@ -273,8 +273,8 @@ export default function Certificates() {
       const cert = certificates.find(c => c.id == id || c.id?.toString() === id?.toString());
       if (cert) {
         // Find employee accent-insensitively
-        const normCertName = normalizeName(cert.employee_name);
-        const emp = employees.find(e => normalizeName(e.name) === normCertName);
+        const normCertName = normalizeSearch(cert.employee_name);
+        const emp = employees.find(e => normalizeSearch(e.name) === normCertName);
         if (emp) {
           await db.entities.Employee.update(emp.id, { status: 'active' });
           await revertCertificateFromSchedule(cert, emp);
@@ -320,8 +320,8 @@ export default function Certificates() {
       });
 
       // Find employee accent-insensitively
-      const normCertName = normalizeName(cert.employee_name);
-      const emp = employees.find(e => normalizeName(e.name) === normCertName);
+      const normCertName = normalizeSearch(cert.employee_name);
+      const emp = employees.find(e => normalizeSearch(e.name) === normCertName);
       if (emp) {
         await db.entities.Employee.update(emp.id, { status: 'active' });
       }
@@ -352,15 +352,13 @@ export default function Certificates() {
   }, [certificates, totalDays]);
 
   const activeLeaves = useMemo(() => {
-    return employees.filter(e => {
-      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias';
-      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica';
-      
-      if (isFerias) return false;
-      if (isLm) return true;
-      return e.status === 'on_leave';
+    return (employees || []).filter(e => {
+      if (!e) return false;
+      const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && !c.type?.startsWith('FER'));
+      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica' || hasMedicalCert;
+      return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isLm;
     }).length;
-  }, [employees]);
+  }, [employees, certificates]);
 
   // Frequent CID calculations
   const frequentCid = useMemo(() => {
@@ -384,7 +382,7 @@ export default function Certificates() {
   const roleAbsenceData = useMemo(() => {
     const dist = {};
     certificates.forEach(cert => {
-      const emp = employees.find(e => normalizeName(e.name) === normalizeName(cert.employee_name));
+      const emp = employees.find(e => normalizeSearch(e.name) === normalizeSearch(cert.employee_name));
       const role = emp ? emp.role : 'Outros';
       const days = parseInt(cert.days_count || cert.days || 0);
       dist[role] = (dist[role] || 0) + days;
@@ -492,15 +490,15 @@ export default function Certificates() {
           icon={Award} 
           label="Média de Dias" 
           value={`${mediaDays} dias`} 
-          color="purple" 
+          color="green" 
           subtitle="Por atestado" 
           onClick={() => setActiveModal('media')}
         />
         <StatCard 
           icon={ShieldAlert} 
-          label="Colaboradores Afastados" 
+          label="Em Licença Médica" 
           value={activeLeaves} 
-          color="yellow" 
+          color="purple" 
           subtitle="Fora de escala" 
           onClick={() => setActiveModal('afastados')}
         />
@@ -1165,7 +1163,7 @@ export default function Certificates() {
                     {activeModal === 'total' && 'Ocorrências por Tipo'}
                     {activeModal === 'dias' && 'Afastamento Acumulado por Pessoa'}
                     {activeModal === 'media' && 'Análise de Média de Dias'}
-                    {activeModal === 'afastados' && 'Profissionais Afastados da Escala'}
+                    {activeModal === 'afastados' && 'Profissionais em Licença Médica'}
                     {activeModal === 'cid' && 'Distribuição de Diagnósticos (CID-10)'}
                     {activeModal === 'absent' && 'Impacto da Taxa de Absenteísmo'}
                   </h2>
@@ -1226,17 +1224,42 @@ export default function Certificates() {
                 {/* D. COLABORADORES AFASTADOS */}
                 {activeModal === 'afastados' && (
                   <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">Profissionais atualmente removidos da escala de plantão:</p>
+                    <p className="text-xs text-muted-foreground">Profissionais atualmente em licença médica/atestado:</p>
                     <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                      {(employees || []).filter(e => e && e.status === 'on_leave').map(emp => (
-                        <div key={emp.id} className="flex justify-between items-center p-3 hover:bg-muted/30">
-                          <div>
-                            <p className="text-xs font-bold">{emp.name}</p>
-                            <span className="text-[10px] text-muted-foreground">Cargo: {emp.role} · Setor: {emp.sector || 'Sem Setor'}</span>
+                      {(employees || []).filter(e => {
+                        if (!e) return false;
+                        const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && !c.type?.startsWith('FER'));
+                        const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica' || hasMedicalCert;
+                        return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isLm;
+                      }).map(emp => {
+                        let leaveType = 'EM LICENÇA';
+                        let badgeClass = "bg-amber-100 text-amber-800 border-amber-300";
+                        
+                        const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(emp.name) && c.type?.startsWith('FER'));
+                        const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(emp.name) && !c.type?.startsWith('FER'));
+                        
+                        const isFerias = emp.absence_status === 'FER' || emp.absence_status === 'ferias' || hasFeriasCert;
+                        const isLm = emp.absence_status === 'LM' || emp.absence_status === 'AT' || emp.absence_status === 'LTS' || emp.absence_status === 'licenca_medica' || hasMedicalCert;
+                        
+                        // We give priority to Certificates for this file
+                        if (isLm) {
+                          leaveType = 'LICENÇA MÉDICA';
+                          badgeClass = "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300";
+                        } else if (isFerias) {
+                          leaveType = 'FÉRIAS';
+                          badgeClass = "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300";
+                        }
+
+                        return (
+                          <div key={emp.id} className="flex justify-between items-center p-3 hover:bg-muted/30">
+                            <div>
+                              <p className="text-xs font-bold">{emp.name}</p>
+                              <span className="text-[10px] text-muted-foreground">Cargo: {emp.role} · Setor: {emp.sector || 'Sem Setor'}</span>
+                            </div>
+                            <Badge className={`${badgeClass} text-[9px] font-bold uppercase`}>{leaveType}</Badge>
                           </div>
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">EM LICENÇA</Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {activeLeaves === 0 && (
                         <p className="text-xs text-muted-foreground text-center py-6">Nenhum profissional afastado no momento!</p>
                       )}
@@ -1284,7 +1307,8 @@ function StatCard({ icon: Icon, label, value, color, subtitle, onClick }) {
     purple: 'bg-purple-500/10 text-purple-500', 
     yellow: 'bg-warning/10 text-warning',
     blue: 'bg-accent/10 text-accent',
-    amber: 'bg-amber-500/10 text-amber-500'
+    amber: 'bg-amber-500/10 text-amber-500',
+    green: 'bg-success/10 text-success'
   };
 
   return (

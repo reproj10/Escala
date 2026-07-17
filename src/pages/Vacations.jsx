@@ -191,6 +191,11 @@ export default function Vacations() {
     queryFn: () => db.entities.Employee.list(),
   });
 
+  const { data: certificates = [] } = useQuery({
+    queryKey: ['medical_certificates'],
+    queryFn: () => db.entities.MedicalCertificate.list(),
+  });
+
   const createVacation = useMutation({
     mutationFn: async (data) => {
       const { days_count, notes, type, aquisitivo, ...payload } = data;
@@ -360,14 +365,11 @@ export default function Vacations() {
   const activeLeaves = useMemo(() => {
     return (employees || []).filter(e => {
       if (!e) return false;
-      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias';
-      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica';
-      
-      if (isLm) return false;
-      if (isFerias) return true;
-      return e.status === 'on_leave';
+      const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && c.type?.startsWith('FER'));
+      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias' || hasFeriasCert;
+      return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isFerias;
     }).length;
-  }, [employees]);
+  }, [employees, certificates]);
 
   // Frequent CID calculations
   const frequentCid = useMemo(() => {
@@ -505,7 +507,7 @@ export default function Vacations() {
         />
         <StatCard 
           icon={ShieldAlert} 
-          label="Colaboradores Afastados" 
+          label="Em Férias" 
           value={activeLeaves} 
           color="yellow" 
           subtitle="Fora de escala" 
@@ -640,7 +642,6 @@ export default function Vacations() {
                             end_date: calculateEndDate(form.start_date, newDays) 
                           });
                         }}
-                        className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
@@ -992,7 +993,6 @@ export default function Vacations() {
                           end_date: calculateEndDate(editingVacation.start_date, newDays)
                         });
                       }}
-                      className="w-full h-9 rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
@@ -1126,7 +1126,7 @@ export default function Vacations() {
                   </h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     {confirmAction.type === 'delete' 
-                      ? `Tem vaceza que deseja excluir o férias de ${confirmAction.vac.employee_name}?`
+                      ? `Tem certeza que deseja excluir o férias de ${confirmAction.vac.employee_name}?`
                       : `Deseja registrar o retorno antecipado de ${confirmAction.vac.employee_name} ao trabalho hoje?`}
                   </p>
                 </div>
@@ -1194,7 +1194,7 @@ export default function Vacations() {
                     {activeModal === 'total' && 'Ocorrências por Tipo'}
                     {activeModal === 'dias' && 'Afastamento Acumulado por Pessoa'}
                     {activeModal === 'media' && 'Análise de Média de Dias'}
-                    {activeModal === 'afastados' && 'Profissionais Afastados da Escala'}
+                    {activeModal === 'afastados' && 'Profissionais em Férias'}
                     {activeModal === 'aquisitivo' && 'Distribuição de Diagnósticos (Período Aquisitivo)'}
                     {activeModal === 'absent' && 'Impacto da Taxa de Absenteísmo'}
                   </h2>
@@ -1247,7 +1247,7 @@ export default function Vacations() {
                     <Award className="h-10 w-10 text-purple-500 mx-auto" />
                     <h3 className="text-lg font-bold text-purple-500">{mediaDays} dias por férias</h3>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                      Esta média indica a gravidade dos fériass médicos apresentados. Férias acima de 15 dias consecutivos exigem encaminhamento da UPA Zilda Arns para perícia médica oficial no INSS.
+                      Esta média indica a gravidade dos férias médicos apresentados. Férias acima de 15 dias consecutivos exigem encaminhamento da UPA Zilda Arns para perícia médica oficial no INSS.
                     </p>
                   </div>
                 )}
@@ -1255,17 +1255,42 @@ export default function Vacations() {
                 {/* D. COLABORADORES AFASTADOS */}
                 {activeModal === 'afastados' && (
                   <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">Profissionais atualmente removidos da escala de plantão:</p>
+                    <p className="text-xs text-muted-foreground">Profissionais atualmente em férias:</p>
                     <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                      {(employees || []).filter(e => e && e.status === 'on_leave').map(emp => (
-                        <div key={emp.id} className="flex justify-between items-center p-3 hover:bg-muted/30">
-                          <div>
-                            <p className="text-xs font-bold">{emp.name}</p>
-                            <span className="text-[10px] text-muted-foreground">Cargo: {emp.role} · Setor: {emp.sector || 'Sem Setor'}</span>
+                      {(employees || []).filter(e => {
+                        if (!e) return false;
+                        const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && c.type?.startsWith('FER'));
+                        const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias' || hasFeriasCert;
+                        return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isFerias;
+                      }).map(emp => {
+                        let leaveType = 'EM LICENÇA';
+                        let badgeClass = "bg-amber-100 text-amber-800 border-amber-300";
+                        
+                        const isVacation = vacations.some(v => normalizeName(v.employee_name) === normalizeName(emp.name));
+                        const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(emp.name) && c.type?.startsWith('FER'));
+                        const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(emp.name) && !c.type?.startsWith('FER'));
+                        
+                        const isFerias = emp.absence_status === 'FER' || emp.absence_status === 'ferias' || isVacation || hasFeriasCert;
+                        const isLm = emp.absence_status === 'LM' || emp.absence_status === 'AT' || emp.absence_status === 'LTS' || emp.absence_status === 'licenca_medica' || hasMedicalCert;
+                        
+                        if (isFerias) {
+                          leaveType = 'FÉRIAS';
+                          badgeClass = "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300";
+                        } else if (isLm || !isVacation) {
+                          leaveType = 'LICENÇA MÉDICA';
+                          badgeClass = "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300";
+                        }
+
+                        return (
+                          <div key={emp.id} className="flex justify-between items-center p-3 hover:bg-muted/30">
+                            <div>
+                              <p className="text-xs font-bold">{emp.name}</p>
+                              <span className="text-[10px] text-muted-foreground">Cargo: {emp.role} · Setor: {emp.sector || 'Sem Setor'}</span>
+                            </div>
+                            <Badge className={`${badgeClass} text-[9px] font-bold uppercase`}>{leaveType}</Badge>
                           </div>
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">EM LICENÇA</Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {activeLeaves === 0 && (
                         <p className="text-xs text-muted-foreground text-center py-6">Nenhum profissional afastado no momento!</p>
                       )}

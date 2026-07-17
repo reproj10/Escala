@@ -20,13 +20,13 @@ const statusStyleMap = {
   FE: { bg: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/50', label: 'Folga Enfermagem' },
   FA: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Folga Abonada' },
   AU: { bg: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/50', label: 'Ausência' },
-  AT: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Atestado Médico' },
-  LM: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Médica' },
-  MAT: { bg: 'bg-pink-100 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/50', label: 'Licença Maternidade' },
+  AT: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Atestado Médico' },
+  LM: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Licença Médica' },
+  MAT: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Licença Maternidade' },
   V: { bg: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/50', label: 'Férias' },
   FER: { bg: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/50', label: 'Férias' },
-  LTS: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Licença Trat. Saúde' },
-  LS: { bg: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/50', label: 'Licença Saúde' },
+  LTS: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Licença Trat. Saúde' },
+  LS: { bg: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/50', label: 'Licença Saúde' },
   SUS: { bg: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/50', label: 'Suspensão' },
   TP: { bg: 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/50', label: 'Troca de Plantão' },
   FI: { bg: 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/50', label: 'Falta Injustificada' },
@@ -143,11 +143,14 @@ export default function SearchPage() {
       return schedule && Object.values(schedule.days || {}).includes('AT');
     }
     if (activeFilter === 'on_leave') {
-      return e.status === 'on_leave';
+      const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && !c.type?.startsWith('FER'));
+      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica' || hasMedicalCert;
+      return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isLm;
     }
     if (activeFilter === 'has_vacation') {
-      const schedule = schedules.find(s => s.employee_name?.trim() === e.name?.trim());
-      return schedule && Object.values(schedule.days || {}).includes('V');
+      const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && c.type?.startsWith('FER'));
+      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias' || hasFeriasCert;
+      return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isFerias;
     }
 
     // Filter by selected day on the calendar (if activeFilter is not overriding)
@@ -204,11 +207,23 @@ export default function SearchPage() {
     return sum + Object.values(s.days || {}).filter(v => v === 'AT').length;
   }, 0);
 
-  const leaveCount = employees.filter(e => e.status === 'on_leave').length;
+  const leaveCount = React.useMemo(() => {
+    return (employees || []).filter(e => {
+      if (!e) return false;
+      const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && !c.type?.startsWith('FER'));
+      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica' || hasMedicalCert;
+      return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isLm;
+    }).length;
+  }, [employees, certificates]);
 
-  const totalFérias = schedules.reduce((sum, s) => {
-    return sum + Object.values(s.days || {}).filter(v => v === 'V').length;
-  }, 0);
+  const totalFérias = React.useMemo(() => {
+    return (employees || []).filter(e => {
+      if (!e) return false;
+      const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && c.type?.startsWith('FER'));
+      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias' || hasFeriasCert;
+      return (e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && isFerias;
+    }).length;
+  }, [employees, certificates]);
 
   // Generate Calendar dynamically based on current month/year
   const getCalendarDays = () => {
@@ -306,7 +321,7 @@ export default function SearchPage() {
             <div className="space-y-1">
               <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Afastamentos</span>
               <h2 className="text-xl font-black text-purple-500">{leaveCount} <span className="text-[10px] font-normal text-muted-foreground">colabs</span></h2>
-              <p className="text-[9px] text-muted-foreground font-semibold truncate">Afastados ou licenças</p>
+              <p className="text-[9px] text-muted-foreground font-semibold truncate">Em Licença Médica / Atestados</p>
             </div>
             <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 flex-shrink-0">
               <UserX className="h-4 w-4" />
@@ -322,22 +337,22 @@ export default function SearchPage() {
           onClick={() => setActiveFilter(activeFilter === 'has_vacation' ? null : 'has_vacation')}
           className={`flex-shrink-0 w-[220px] lg:w-auto shadow-sm relative overflow-hidden cursor-pointer select-none transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95 border ${
             activeFilter === 'has_vacation' 
-              ? 'border-cyan-500 ring-2 ring-cyan-500/20' 
-              : 'border-border/60 hover:border-cyan-500/30'
+              ? 'border-orange-500 ring-2 ring-orange-500/20' 
+              : 'border-border/60 hover:border-orange-500/30'
           }`}
         >
           <CardContent className="p-3 flex items-center justify-between h-full">
             <div className="space-y-1">
               <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Férias</span>
-              <h2 className="text-xl font-black text-cyan-500">{totalFérias} <span className="text-[10px] font-normal text-muted-foreground">dias</span></h2>
-              <p className="text-[9px] text-muted-foreground font-semibold truncate">Em gozo de férias no mês</p>
+              <h2 className="text-xl font-black text-orange-500">{totalFérias} <span className="text-[10px] font-normal text-muted-foreground">colabs</span></h2>
+              <p className="text-[9px] text-muted-foreground font-semibold truncate">Em gozo de férias</p>
             </div>
-            <div className="h-8 w-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 flex-shrink-0">
+            <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 flex-shrink-0">
               <Sun className="h-4 w-4" />
             </div>
           </CardContent>
           {activeFilter === 'has_vacation' && (
-            <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-cyan-500" />
+            <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-orange-500" />
           )}
         </Card>
       </motion.div>

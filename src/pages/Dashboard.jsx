@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, FileHeart, AlertTriangle, Activity, X, ArrowRight, CheckCircle2, Shield, CalendarRange, MapPin, History, Calendar, Pencil, UserPlus, FileText, Lock } from 'lucide-react';
-import { getCurrentMonthYearString } from "@/lib/utils";
+import { getCurrentMonthYearString, normalizeSearch } from "@/lib/utils";
 import StatCard from '@/components/dashboard/StatCard';
 import ShiftChart from '@/components/dashboard/ShiftChart';
 import DailyStaffChart from '@/components/dashboard/DailyStaffChart';
@@ -72,6 +72,8 @@ export default function Dashboard() {
   const todayPresentEmployees = [];
   const onLeaveMap = new Map();
 
+  const medicalCertificates = certificates.filter(c => !c.type?.startsWith('FER'));
+
   schedules.forEach(s => {
     const todayStatus = s.days?.[String(today)];
     if (todayStatus === 'P') {
@@ -98,17 +100,29 @@ export default function Dashboard() {
   // Fallback for globally marked as on_leave if not already caught by schedule
   employees.forEach(e => {
     if (!e) return;
+    
+    const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && c.type?.startsWith('FER'));
+    const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && !c.type?.startsWith('FER'));
+    
+    const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias' || hasFeriasCert;
+    const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica' || hasMedicalCert;
+    
     if ((e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && !onLeaveMap.has(e.name)) {
-      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias';
-      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica';
-      onLeaveMap.set(e.name, {
-        ...e,
-        leaveType: isFerias ? 'FÉRIAS' : (isLm ? 'LICENÇA MÉDICA' : 'EM LICENÇA')
-      });
+      if (isFerias || isLm) {
+        onLeaveMap.set(e.name, {
+          ...e,
+          leaveType: isFerias ? 'FÉRIAS' : 'LICENÇA MÉDICA'
+        });
+      } else {
+        onLeaveMap.set(e.name, {
+          ...e,
+          leaveType: 'EM LICENÇA'
+        });
+      }
     }
   });
 
-  const onLeave = Array.from(onLeaveMap.values());
+  const onLeave = Array.from(onLeaveMap.values()).filter(emp => emp.leaveType !== 'FÉRIAS');
 
 
   // Category breakdown for Total Colaboradores
@@ -180,13 +194,13 @@ export default function Dashboard() {
           value={onLeave.length}
           subtitle="Em licença"
           icon={AlertTriangle}
-          color="yellow"
+          color="purple"
           delay={0.2}
           onClick={() => setActiveModal('afastados')}
         />
         <StatCard
           title="Atestados"
-          value={certificates.length}
+          value={medicalCertificates.length}
           subtitle="Este mês"
           icon={FileHeart}
           color="red"
@@ -466,7 +480,7 @@ export default function Dashboard() {
                                 <p className="text-xs font-semibold">{emp.name}</p>
                                 <span className="text-[10px] text-muted-foreground">Coren: {emp.coren} · Cargo: {emp.role}</span>
                               </div>
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${emp.leaveType === 'FÉRIAS' ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-300'}`}>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${emp.leaveType === 'FÉRIAS' ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300'}`}>
                                 {emp.leaveType || 'EM LICENÇA'}
                               </span>
                             </div>
@@ -490,15 +504,15 @@ export default function Dashboard() {
                 {/* 4. ATESTADOS BREAKDOWN */}
                 {activeModal === 'atestados' && (
                   <div className="space-y-4">
-                    {certificates.length === 0 ? (
+                    {medicalCertificates.length === 0 ? (
                       <div className="text-center py-6 space-y-2">
                         <p className="text-xs text-muted-foreground">Nenhum atestado médico registrado neste mês de {getCurrentMonthYearString()}.</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Atestados Ativos ({certificates.length})</h3>
+                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Atestados Ativos ({medicalCertificates.length})</h3>
                         <div className="border border-border rounded-lg overflow-hidden divide-y divide-border max-h-[40vh] overflow-y-auto">
-                          {certificates.map(cert => (
+                          {medicalCertificates.map(cert => (
                             <div key={cert.id} className="p-3 hover:bg-muted/30 transition-colors space-y-1.5">
                               <div className="flex items-center justify-between">
                                 <p className="text-xs font-bold">{cert.employee_name}</p>

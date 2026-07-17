@@ -8,6 +8,7 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color, de
     red: 'bg-destructive/10 text-destructive',
     yellow: 'bg-warning/10 text-warning',
     green: 'bg-success/10 text-success',
+    purple: 'bg-purple-500/10 text-purple-500',
   };
 
   return (
