@@ -352,7 +352,14 @@ export default function Certificates() {
   }, [certificates, totalDays]);
 
   const activeLeaves = useMemo(() => {
-    return employees.filter(e => e.status === 'on_leave').length;
+    return employees.filter(e => {
+      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias';
+      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica';
+      
+      if (isFerias) return false;
+      if (isLm) return true;
+      return e.status === 'on_leave';
+    }).length;
   }, [employees]);
 
   // Frequent CID calculations
@@ -1221,7 +1228,7 @@ export default function Certificates() {
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">Profissionais atualmente removidos da escala de plantão:</p>
                     <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                      {employees.filter(e => e.status === 'on_leave').map(emp => (
+                      {(employees || []).filter(e => e && e.status === 'on_leave').map(emp => (
                         <div key={emp.id} className="flex justify-between items-center p-3 hover:bg-muted/30">
                           <div>
                             <p className="text-xs font-bold">{emp.name}</p>

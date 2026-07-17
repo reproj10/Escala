@@ -2095,44 +2095,44 @@ function EscalaControl() {
       </div>
 
       {/* CORE NAVIGATION TAB ROW WITH THE "VISÃO GLOBAL" ACTION BUTTON */}
-      <div className="flex border-b border-border/70 flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1">
+      <div className="flex flex-col gap-3 mb-2">
+        <div className="flex border-b border-border/70 flex-nowrap items-center w-full overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setActiveTab("overview")}
             className={cn(
-              "px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 outline-none cursor-pointer",
+              "px-2 py-3 lg:px-4 text-[9px] lg:text-xs font-black uppercase tracking-normal border-b-2 transition-all flex items-center gap-1 outline-none cursor-pointer whitespace-nowrap",
               activeTab === "overview" 
                 ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-black" 
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             )}
           >
-            <CalendarDays className="h-4 w-4 text-indigo-500" />
+            <CalendarDays className="h-4 w-4 shrink-0 text-indigo-500" />
             1. Quadro de Plantões
           </button>
 
           <button
             onClick={() => setActiveTab("request-portal")}
             className={cn(
-              "px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 outline-none cursor-pointer",
+              "px-2 py-3 lg:px-4 text-[9px] lg:text-xs font-black uppercase tracking-normal border-b-2 transition-all flex items-center gap-1 outline-none cursor-pointer whitespace-nowrap",
               activeTab === "request-portal" 
                 ? "border-blue-600 text-blue-600 dark:text-blue-400 font-black" 
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             )}
           >
-            <Briefcase className="h-4 w-4 text-blue-500" />
+            <Briefcase className="h-4 w-4 shrink-0 text-blue-500" />
             2. Escala do Profissional (Escolher Folga)
           </button>
 
           <button
             onClick={() => setActiveTab("approval-desk")}
             className={cn(
-              "px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 outline-none cursor-pointer relative",
+              "px-2 py-3 lg:px-4 text-[9px] lg:text-xs font-black uppercase tracking-normal border-b-2 transition-all flex items-center gap-1 outline-none cursor-pointer relative whitespace-nowrap",
               activeTab === "approval-desk" 
                 ? "border-purple-650 text-purple-600 dark:text-purple-400 font-black" 
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             )}
           >
-            <Building2 className="h-4 w-4 text-purple-500" />
+            <Building2 className="h-4 w-4 shrink-0 text-purple-500" />
             3. Pareceres e Homologação de Folgas
             {requests.filter(r => r.status === "pending").length > 0 && (
               <span className="absolute top-1.5 right-1 h-2 w-2 rounded-full bg-red-500 animate-ping" />
@@ -2142,24 +2142,24 @@ function EscalaControl() {
           <button
             onClick={() => setActiveTab("settings")}
             className={cn(
-              "px-5 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 outline-none cursor-pointer",
+              "px-2 py-3 lg:px-4 text-[9px] lg:text-xs font-black uppercase tracking-normal border-b-2 transition-all flex items-center gap-1 outline-none cursor-pointer whitespace-nowrap",
               activeTab === "settings" 
                 ? "border-slate-800 dark:border-slate-300 text-slate-800 dark:text-slate-300 font-black" 
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             )}
           >
-            <Settings className="h-4 w-4 text-slate-500" />
+            <Settings className="h-4 w-4 shrink-0 text-slate-500" />
             4. Configurações da Escala
           </button>
         </div>
 
         {/* Global scale calendar view button */}
-        <div className="pb-2 pr-2 md:pb-0">
+        <div className="flex items-center w-full">
           <Button
             onClick={() => setIsGlobalScaleOpen(true)}
-            className="h-9 px-4 text-xs bg-gradient-to-r from-teal-600 to-indigo-650 hover:from-teal-700 hover:to-indigo-700 text-white font-extrabold gap-1.5 rounded-lg shadow-md transition-all scale-100 active:scale-95"
+            className="h-9 px-4 text-xs bg-gradient-to-r from-teal-600 to-indigo-650 hover:from-teal-700 hover:to-indigo-700 text-white font-extrabold gap-1.5 rounded-lg shadow-md transition-all scale-100 active:scale-95 whitespace-nowrap"
           >
-            <CalendarCheck className="h-4 w-4 text-emerald-400" />
+            <CalendarCheck className="h-4 w-4 shrink-0 text-emerald-400" />
             Visão Global da Escala (Mês Todo)
           </Button>
         </div>

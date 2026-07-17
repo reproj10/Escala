@@ -65,15 +65,16 @@ export default function Dashboard() {
   });
 
   const activeEmployees = employees.filter(e => e.status === 'active');
-  const onLeave = employees.filter(e => e.status === 'on_leave');
 
-  // Count today's present
+  // Count today's present and calculate leave
   const today = new Date().getDate();
   let todayPresent = 0;
   const todayPresentEmployees = [];
+  const onLeaveMap = new Map();
 
   schedules.forEach(s => {
-    if (s.days?.[String(today)] === 'P') {
+    const todayStatus = s.days?.[String(today)];
+    if (todayStatus === 'P') {
       todayPresent++;
       const emp = employees.find(e => e.name === s.employee_name);
       if (emp) {
@@ -83,12 +84,37 @@ export default function Dashboard() {
           shift_type: s.shift_type
         });
       }
+    } else if (['LM', 'AT', 'LTS', 'FER'].includes(todayStatus)) {
+      const emp = employees.find(e => e.name === s.employee_name);
+      if (emp) {
+        onLeaveMap.set(emp.name, {
+          ...emp,
+          leaveType: (todayStatus === 'FER') ? 'FÉRIAS' : 'LICENÇA MÉDICA'
+        });
+      }
     }
   });
+
+  // Fallback for globally marked as on_leave if not already caught by schedule
+  employees.forEach(e => {
+    if (!e) return;
+    if ((e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none')) && !onLeaveMap.has(e.name)) {
+      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias';
+      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica';
+      onLeaveMap.set(e.name, {
+        ...e,
+        leaveType: isFerias ? 'FÉRIAS' : (isLm ? 'LICENÇA MÉDICA' : 'EM LICENÇA')
+      });
+    }
+  });
+
+  const onLeave = Array.from(onLeaveMap.values());
+
 
   // Category breakdown for Total Colaboradores
   const roleBreakdown = {
     'RES.TECNICA': 0,
+    'LIDERANÇA': 0,
     'SUPERVISÃO': 0,
     'ENFERMEIRA': 0,
     'ENFERMEIRO': 0,
@@ -434,14 +460,14 @@ export default function Dashboard() {
                       <div className="space-y-3 text-left">
                         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Colaboradores em Afastamento ({onLeave.length})</h3>
                         <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                          {onLeave.map(emp => (
-                            <div key={emp.id} className="flex items-center justify-between p-3 hover:bg-muted/30 transition-colors">
+                          {onLeave.map((emp, i) => (
+                            <div key={emp.id || i} className="flex items-center justify-between p-3 hover:bg-muted/30 transition-colors">
                               <div>
                                 <p className="text-xs font-semibold">{emp.name}</p>
                                 <span className="text-[10px] text-muted-foreground">Coren: {emp.coren} · Cargo: {emp.role}</span>
                               </div>
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-300">
-                                EM LICENÇA
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${emp.leaveType === 'FÉRIAS' ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-300'}`}>
+                                {emp.leaveType || 'EM LICENÇA'}
                               </span>
                             </div>
                           ))}
