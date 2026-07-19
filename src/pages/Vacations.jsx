@@ -389,36 +389,61 @@ export default function Vacations() {
     return ((totalDays / totalMonthWorkdays) * 100).toFixed(2) + '%';
   }, [employees, totalDays]);
 
+  // Virtual Vacations for manually toggled leaves
+  const displayVacations = useMemo(() => {
+    const list = [...vacations];
+    employees.forEach(e => {
+      const hasFeriasCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && c.type?.startsWith('FER'));
+      const isFerias = e.absence_status === 'FER' || e.absence_status === 'ferias';
+      const isAfastado = e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none');
+      
+      if (isAfastado && isFerias && !hasFeriasCert) {
+        list.push({
+          id: `virtual-${e.id}`,
+          employee_name: e.name,
+          type: 'FER',
+          aquisitivo: 'N/A',
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: null,
+          days: 0,
+          days_count: 0,
+          notes: 'Férias manual (Prazo Indefinido)'
+        });
+      }
+    });
+    return list;
+  }, [vacations, employees, certificates]);
+
   // Calculations for dynamic Recharts charts
   const roleAbsenceData = useMemo(() => {
     const dist = {};
-    vacations.forEach(vac => {
+    displayVacations.forEach(vac => {
       const emp = employees.find(e => normalizeName(e.name) === normalizeName(vac.employee_name));
       const role = emp ? emp.role : 'Outros';
       const days = parseInt(vac.days_count || vac.days || 0);
       dist[role] = (dist[role] || 0) + days;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
-  }, [vacations, employees]);
+  }, [displayVacations, employees]);
 
   const vacTypeData = useMemo(() => {
     const dist = {};
-    vacations.forEach(vac => {
+    displayVacations.forEach(vac => {
       const type = typeLabels[vac.type] || vac.type || 'Férias';
       dist[type] = (dist[type] || 0) + 1;
 });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
-  }, [vacations]);
+  }, [displayVacations]);
 
   // Filtered List
   const filteredVacations = useMemo(() => {
     const q = normalizeSearch(searchQuery);
-    return vacations.filter(c =>
+    return displayVacations.filter(c =>
       normalizeSearch(c.employee_name).includes(q) ||
       normalizeSearch(c.aquisitivo).includes(q) ||
       normalizeSearch(c.notes).includes(q)
     );
-  }, [vacations, searchQuery]);
+  }, [displayVacations, searchQuery]);
 
   const handleEditSubmit = (e) => {
     e.preventDefault();
@@ -824,7 +849,17 @@ export default function Vacations() {
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
-                          onClick={() => setEditingVacation({ ...vac })}
+                          onClick={() => {
+                            if (String(vac.id).startsWith('virtual-')) {
+                              toast({
+                                title: "Aviso",
+                                description: "Estas são férias manuais. Reative o colaborador na página de Gestão.",
+                                variant: "warning"
+                              });
+                              return;
+                            }
+                            setEditingVacation({ ...vac });
+                          }}
                           title="Editar detalhes"
                         >
                           <Pencil className="h-3.5 w-3.5 text-primary" />
@@ -834,7 +869,17 @@ export default function Vacations() {
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                          onClick={() => setConfirmAction({ type: 'complete', vac })}
+                          onClick={() => {
+                            if (String(vac.id).startsWith('virtual-')) {
+                              toast({
+                                title: "Aviso",
+                                description: "Estas são férias manuais. Reative o colaborador na página de Gestão.",
+                                variant: "warning"
+                              });
+                              return;
+                            }
+                            setConfirmAction({ type: 'complete', vac });
+                          }}
                           title="Encerrar / Retorno Antecipado"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
@@ -844,7 +889,17 @@ export default function Vacations() {
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          onClick={() => setConfirmAction({ type: 'delete', vac })}
+                          onClick={() => {
+                            if (String(vac.id).startsWith('virtual-')) {
+                              toast({
+                                title: "Aviso",
+                                description: "Estas são férias manuais. Reative o colaborador na página de Gestão.",
+                                variant: "warning"
+                              });
+                              return;
+                            }
+                            setConfirmAction({ type: 'delete', vac });
+                          }}
                           title="Remover"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />

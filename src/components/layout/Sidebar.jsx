@@ -8,7 +8,6 @@ import {
   Search,
   Users,
   FileHeart,
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   Activity,
@@ -18,13 +17,12 @@ import ThemeToggle from './ThemeToggle';
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/escala-control', icon: CalendarDays, label: 'Escala Control' },
+  { path: '/gerenciamento', icon: Users, label: 'Gerenciamento' },
+  { path: '/ferias', icon: Sun, label: 'Férias' },
+  { path: '/atestados', icon: FileHeart, label: 'Atestados' },
   { path: '/novo', icon: Plus, label: 'Novo Colaborador' },
   { path: '/pesquisar', icon: Search, label: 'Pesquisar' },
-  { path: '/gerenciamento', icon: Users, label: 'Gerenciamento' },
-  { path: '/atestados', icon: FileHeart, label: 'Atestados' },
-  { path: '/ferias', icon: Sun, label: 'Férias' },
-  { path: '/relatorios', icon: BarChart3, label: 'Relatórios' },
-  { path: '/escala-control', icon: CalendarDays, label: 'Escala Control' },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed }) {

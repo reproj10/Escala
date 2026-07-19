@@ -378,36 +378,61 @@ export default function Certificates() {
     return ((totalDays / totalMonthWorkdays) * 100).toFixed(2) + '%';
   }, [employees, totalDays]);
 
+  // Virtual Certificates for manually toggled leaves
+  const displayCertificates = useMemo(() => {
+    const list = [...certificates];
+    employees.forEach(e => {
+      const isLm = e.absence_status === 'LM' || e.absence_status === 'AT' || e.absence_status === 'LTS' || e.absence_status === 'licenca_medica';
+      const isAfastado = e.status === 'on_leave' || (e.absence_status && e.absence_status !== 'none');
+      const hasMedicalCert = certificates.some(c => normalizeSearch(c.employee_name) === normalizeSearch(e.name) && !c.type?.startsWith('FER'));
+      
+      if (isAfastado && isLm && !hasMedicalCert) {
+        list.push({
+          id: `virtual-${e.id}`,
+          employee_name: e.name,
+          type: e.absence_status || 'AT',
+          cid: 'N/A',
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: null,
+          days: 0,
+          days_count: 0,
+          notes: 'Afastamento manual (Prazo Indefinido)'
+        });
+      }
+    });
+    return list;
+  }, [certificates, employees]);
+
   // Calculations for dynamic Recharts charts
   const roleAbsenceData = useMemo(() => {
     const dist = {};
-    certificates.forEach(cert => {
+    displayCertificates.forEach(cert => {
       const emp = employees.find(e => normalizeSearch(e.name) === normalizeSearch(cert.employee_name));
       const role = emp ? emp.role : 'Outros';
       const days = parseInt(cert.days_count || cert.days || 0);
       dist[role] = (dist[role] || 0) + days;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
-  }, [certificates, employees]);
+  }, [displayCertificates, employees]);
 
   const certTypeData = useMemo(() => {
     const dist = {};
-    certificates.forEach(cert => {
+    displayCertificates.forEach(cert => {
       const type = typeLabels[cert.type] || cert.type || 'Atestado';
       dist[type] = (dist[type] || 0) + 1;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
-  }, [certificates]);
+  }, [displayCertificates]);
 
   // Filtered List
   const filteredCertificates = useMemo(() => {
     const q = normalizeSearch(searchQuery);
-    return certificates.filter(c =>
+    return displayCertificates.filter(c =>
       normalizeSearch(c.employee_name).includes(q) ||
       normalizeSearch(c.cid).includes(q) ||
       normalizeSearch(c.notes).includes(q)
     );
-  }, [certificates, searchQuery]);
+  }, [displayCertificates, searchQuery]);
 
   const handleEditSubmit = (e) => {
     e.preventDefault();
@@ -803,7 +828,18 @@ export default function Certificates() {
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
-                          onClick={() => setEditingCert({ ...cert })}
+                          onClick={() => {
+                            if (String(cert.id).startsWith('virtual-')) {
+                              toast({
+                                title: "Aviso",
+                                description: "Este é um afastamento manual. Reative o colaborador na página de Gestão.",
+                                variant: "warning"
+                              });
+                              return;
+                            }
+                            setEditingCert({ ...cert });
+                            setShowForm(true);
+                          }}
                           title="Editar detalhes do atestado"
                         >
                           <Pencil className="h-3.5 w-3.5 text-primary" />
@@ -814,7 +850,17 @@ export default function Certificates() {
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                          onClick={() => setConfirmAction({ type: 'complete', cert })}
+                          onClick={() => {
+                            if (String(cert.id).startsWith('virtual-')) {
+                              toast({
+                                title: "Aviso",
+                                description: "Este é um afastamento manual. Reative o colaborador na página de Gestão.",
+                                variant: "warning"
+                              });
+                              return;
+                            }
+                            setConfirmAction({ type: 'complete', cert });
+                          }}
                           title="Encerrar afastamento / Retorno Antecipado"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
@@ -825,7 +871,17 @@ export default function Certificates() {
                           size="icon" 
                           variant="ghost" 
                           className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          onClick={() => setConfirmAction({ type: 'delete', cert })}
+                          onClick={() => {
+                            if (String(cert.id).startsWith('virtual-')) {
+                              toast({
+                                title: "Aviso",
+                                description: "Este é um afastamento manual. Reative o colaborador na página de Gestão.",
+                                variant: "warning"
+                              });
+                              return;
+                            }
+                            setConfirmAction({ type: 'delete', cert });
+                          }}
                           title="Remover atestado"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />

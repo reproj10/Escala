@@ -76,6 +76,7 @@ import {
 import { useScaleSettings } from "@/hooks/useScaleSettings";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 // Define TypeScript structures
 export interface StaffMember {
@@ -2020,79 +2021,10 @@ function EscalaControl() {
             <CalendarDays className="h-6 w-6 text-indigo-500" />
             Gestão de Escalas & Escolha de Folgas
           </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            A folga é um direito do profissional de saúde da UPA. Use este painel para registrar as opções de folga escolhidas pelos colaboradores, enquanto a Gestão Geral detém a palavra final para avaliar a cobertura mínima de equipe.
-          </p>
-          <div className="flex items-center gap-2 pt-2">
-            <Badge variant="outline" className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 text-[10px] font-bold tracking-wider uppercase">
-              Recursos Humanos & Escalabilidade
-            </Badge>
-            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-bold tracking-wider uppercase">
-              Direito e Benefício Constitucional
-            </Badge>
-          </div>
-        </div>
-        
-        <div className="shrink-0 bg-card p-3 rounded-xl border border-border shadow-sm space-y-1">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider block font-bold">
-            Assinatura Autorizada (Gestão Geral)
-          </span>
-          <Input 
-            value={managerSignature} 
-            onChange={(e) => setManagerSignature(e.target.value)}
-            className="h-8 w-[320px] max-w-full text-xs font-bold rounded-lg focus-visible:ring-1 focus-visible:ring-primary"
-            placeholder="Nome do Gestor Geral"
-          />
         </div>
       </motion.div>
 
-      {/* CORE STATS BANNER */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="flex-shrink-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent shadow-sm relative overflow-hidden transition-all duration-300 hover:scale-[1.02] border border-border/60 hover:border-amber-500/30">
-          <CardContent className="p-4 flex items-center justify-between gap-4 h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Teto Crítico de Ausências</span>
-              <p className="text-[11px] text-muted-foreground font-medium leading-snug">
-                Limite por plantão de <strong className="text-foreground font-black">{limits?.technicians || 3} Técnicos</strong> e <strong className="text-foreground font-black">{limits?.nurses || 1} Enfermeiro</strong> em folga.
-              </p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 flex-shrink-0">
-              <ShieldAlert className="h-4 w-4" />
-            </div>
-          </CardContent>
-          <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-amber-500" />
-        </Card>
 
-        <Card className="flex-shrink-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent shadow-sm relative overflow-hidden transition-all duration-300 hover:scale-[1.02] border border-border/60 hover:border-indigo-500/30">
-          <CardContent className="p-4 flex items-center justify-between gap-4 h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Solicitações Ativas de Folga</span>
-              <p className="text-[11px] text-muted-foreground font-medium leading-snug">
-                <strong className="text-indigo-600 dark:text-indigo-400 font-extrabold">{requests.filter(r => r.status === "pending").length} solicitações</strong> aguardam validação final da gestão.
-              </p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0">
-              <Briefcase className="h-4 w-4" />
-            </div>
-          </CardContent>
-          <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-indigo-500" />
-        </Card>
-
-        <Card className="flex-shrink-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent shadow-sm relative overflow-hidden transition-all duration-300 hover:scale-[1.02] border border-border/60 hover:border-emerald-500/30">
-          <CardContent className="p-4 flex items-center justify-between gap-4 h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Direito & Amparo Legal</span>
-              <p className="text-[11px] text-muted-foreground font-medium leading-snug">
-                Asseguramos o registro das vontades e escala móvel com total conformidade trabalhista na UPA.
-              </p>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 flex-shrink-0">
-              <Award className="h-4 w-4" />
-            </div>
-          </CardContent>
-          <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-bl bg-emerald-500" />
-        </Card>
-      </div>
 
       {/* CORE NAVIGATION TAB ROW WITH THE "VISÃO GLOBAL" ACTION BUTTON */}
       <div className="flex flex-col gap-3 mb-2">
@@ -2690,6 +2622,7 @@ function EscalaControl() {
                   </div>
                   
                   <div className="flex items-center gap-2 flex-wrap">
+                    <ThemeToggle />
 
                     <Button
                       variant="outline"
@@ -3027,7 +2960,7 @@ function EscalaControl() {
                         <col style={{ width: '60px' }} />
                       </colgroup>
                       <thead>
-                        <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                        <tr className="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
                           <th
                             className="bg-muted colaborador-header"
                             style={{
@@ -3062,6 +2995,7 @@ function EscalaControl() {
                             return (
                               <th
                                 key={d}
+                                className={isWeekend ? "bg-red-500/5 text-red-600 dark:bg-red-500/10 dark:text-red-400" : "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-400"}
                                 style={{
                                   padding: 0,
                                   fontWeight: 800,
@@ -3069,8 +3003,6 @@ function EscalaControl() {
                                   width: '28px',
                                   minWidth: '28px',
                                   height: '45px',
-                                  backgroundColor: isWeekend ? 'rgba(239,68,68,0.04)' : '#f1f5f9',
-                                  color: isWeekend ? '#dc2626' : '#475569',
                                 }}
                               >
                                 <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -3175,7 +3107,7 @@ function EscalaControl() {
                                       }}
                                     >
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: isGeneratingPDF ? 'center' : 'flex-start', paddingLeft: isGeneratingPDF ? '0px' : '12px', paddingRight: '12px' }}>
-                                        <span style={{ display: 'block', fontSize: '11px', fontWeight: 900, color: '#0f172a', lineHeight: 1.3, textAlign: isGeneratingPDF ? 'center' : 'left' }} title={p.name}>
+                                        <span className="text-slate-900 dark:text-slate-100" style={{ display: 'block', fontSize: '11px', fontWeight: 900, lineHeight: 1.3, textAlign: isGeneratingPDF ? 'center' : 'left' }} title={p.name}>
                                           {p.name}
                                         </span>
                                       </div>
@@ -3183,14 +3115,14 @@ function EscalaControl() {
                                     {/* Category badge cell */}
                                     <td className="categoria-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '85px', height: '40px' }}>
                                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px' }}>
-                                        <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[9px] font-semibold border ${roleBadgeColor(p.roleCategory || p.role)}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                        <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[9px] font-semibold border ${roleBadgeColor(p.roleCategory || p.role)}`}>
                                           <span className="pdf-inner-text">{p.roleCategory || p.role}</span>
                                         </span>
                                       </div>
                                     </td>
                                     {/* COREN cell */}
                                     <td className="coren-cell" style={{ padding: 0, borderRight: '1px solid #e2e8f0', width: '75px', height: '40px' }}>
-                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px', fontFamily: 'monospace', fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                      <div className="text-slate-500 dark:text-slate-400" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: '8px', paddingRight: '8px', fontFamily: 'monospace', fontSize: '10px', whiteSpace: 'nowrap' }}>
                                         <span className="pdf-content-shift">{p.coren || '—'}</span>
                                       </div>
                                     </td>
@@ -3210,6 +3142,7 @@ function EscalaControl() {
                                       return (
                                         <td
                                           key={d}
+                                          className={isWeekend ? "bg-red-50 dark:bg-red-950/20" : "bg-transparent"}
                                           onClick={() => {
                                             setSelectedExcelCell({
                                               memberName: p.name,
@@ -3228,11 +3161,10 @@ function EscalaControl() {
                                             width: '38px',
                                             height: '40px',
                                             cursor: 'pointer',
-                                            backgroundColor: isWeekend ? 'rgba(254,242,242,1)' : 'transparent',
                                           }}
                                         >
                                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded text-[9px] font-semibold border ${style.bg} ${style.text} ${style.border}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
+                                            <span className={`inline-flex items-center justify-center h-5 w-5 rounded text-[9px] font-semibold border ${style.bg} ${style.text} ${style.border}`}>
                                               <span className="pdf-inner-text">{displayVal}</span>
                                             </span>
                                           </div>
@@ -3240,7 +3172,7 @@ function EscalaControl() {
                                       );
                                     })}
                                     <td style={{ padding: 0, borderRight: '1.5px solid #94a3b8', width: '60px', height: '40px' }}>
-                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(100,116,139,0.3)', fontFamily: 'monospace', fontSize: '10px', whiteSpace: 'nowrap' }}>
+                                      <div className="text-slate-500/30 dark:text-slate-400/30" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: '10px', whiteSpace: 'nowrap' }}>
                                         ____
                                       </div>
                                     </td>
