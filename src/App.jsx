@@ -17,7 +17,7 @@ import Certificates from '@/pages/Certificates';
 import Reports from '@/pages/Reports';
 import EscalaControl from '@/pages/EscalaControl';
 import Vacations from '@/pages/Vacations';
-import Portal from '@/pages/Portal';
+import PortalPage from '@/pages/PortalPage';
 
 const AuthenticatedApp = () => {
   return (
@@ -44,7 +44,7 @@ function App() {
         <QueryClientProvider client={queryClientInstance}>
           <Router>
             <Routes>
-              <Route path="/portal/*" element={<Portal />} />
+              <Route path="/portal/*" element={<PortalPage />} />
               <Route path="/*" element={<AuthenticatedApp />} />
             </Routes>
           </Router>
