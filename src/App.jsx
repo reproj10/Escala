@@ -17,6 +17,7 @@ import Certificates from '@/pages/Certificates';
 import Reports from '@/pages/Reports';
 import EscalaControl from '@/pages/EscalaControl';
 import Vacations from '@/pages/Vacations';
+import Portal from '@/pages/Portal';
 
 const AuthenticatedApp = () => {
   return (
@@ -42,7 +43,10 @@ function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClientInstance}>
           <Router>
-            <AuthenticatedApp />
+            <Routes>
+              <Route path="/portal/*" element={<Portal />} />
+              <Route path="/*" element={<AuthenticatedApp />} />
+            </Routes>
           </Router>
           <Toaster />
           <SonnerToaster richColors position="top-right" style={{ zIndex: 99999 }} />

@@ -18,6 +18,7 @@ export default defineConfig({
     },
   },
   server: {
-    open: true
+    open: true,
+    allowedHosts: ['breezy-months-enter.loca.lt', 'all']
   }
 });

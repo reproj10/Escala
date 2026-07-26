@@ -19,7 +19,7 @@ export default function NewEmployee() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    name: '', cpf: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
+    name: '', cpf: '', email: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
     work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active',
   });
 
@@ -59,7 +59,7 @@ export default function NewEmployee() {
       
       // Auto-limpa o formulário para o próximo cadastro
       setForm({
-        name: '', cpf: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
+        name: '', cpf: '', email: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
         work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active',
       });
     },
@@ -89,7 +89,7 @@ export default function NewEmployee() {
 
   const handleClear = () => {
     setForm({
-      name: '', cpf: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
+      name: '', cpf: '', email: '', phone: '', role: 'TEC.ENF', coren: '', shift_type: 'diurno_a',
       work_hours: '07:00 as 19:00', sector: '', cycle: 'par', contract_type: '', status: 'active',
     });
   };
@@ -136,6 +136,10 @@ export default function NewEmployee() {
                   )}
                 </div>
                 <div>
+                  <Label>E-mail Pessoal (Para Portal)</Label>
+                  <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@exemplo.com" />
+                </div>
+                <div>
                   <Label>Telefone / WhatsApp</Label>
                   <Input value={form.phone} onChange={e => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="(11) 99999-9999" />
                 </div>
@@ -157,31 +161,35 @@ export default function NewEmployee() {
                   <Label>COREN</Label>
                   <Input value={form.coren} onChange={e => setForm({ ...form, coren: e.target.value })} placeholder="Nº COREN" />
                 </div>
-                <div>
-                  <Label>Turno</Label>
-                  <Select value={form.shift_type} onValueChange={v => setForm({ ...form, shift_type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="diurno_a">Diurno A</SelectItem>
-                      <SelectItem value="diurno_b">Diurno B</SelectItem>
-                      <SelectItem value="noturno_a">Noturno A</SelectItem>
-                      <SelectItem value="noturno_b">Noturno B</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {form.role !== 'RES.TECNICA' && form.role !== 'LIDERANÇA' && (
+                  <>
+                    <div>
+                      <Label>Turno</Label>
+                      <Select value={form.shift_type} onValueChange={v => setForm({ ...form, shift_type: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="diurno_a">Diurno A</SelectItem>
+                          <SelectItem value="diurno_b">Diurno B</SelectItem>
+                          <SelectItem value="noturno_a">Noturno A</SelectItem>
+                          <SelectItem value="noturno_b">Noturno B</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Ciclo (12x36)</Label>
+                      <Select value={form.cycle} onValueChange={v => setForm({ ...form, cycle: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="par">Par (dias 1, 3, 5...)</SelectItem>
+                          <SelectItem value="impar">Ímpar (dias 2, 4, 6...)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
                 <div>
                   <Label>Horário</Label>
                   <Input value={form.work_hours} onChange={e => setForm({ ...form, work_hours: e.target.value })} placeholder="07:00 as 19:00" />
-                </div>
-                <div>
-                  <Label>Ciclo (12x36)</Label>
-                  <Select value={form.cycle} onValueChange={v => setForm({ ...form, cycle: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="par">Par (dias 1, 3, 5...)</SelectItem>
-                      <SelectItem value="impar">Ímpar (dias 2, 4, 6...)</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div>
                   <Label>Setor</Label>

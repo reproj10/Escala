@@ -196,6 +196,7 @@ export default function Management() {
       data: {
         name: editingEmployee.name,
         cpf: editingEmployee.cpf,
+        email: editingEmployee.email,
         role: editingEmployee.role,
         coren: editingEmployee.coren,
         work_hours: editingEmployee.work_hours,
@@ -624,20 +625,24 @@ export default function Management() {
                     <TableCell className="text-xs text-muted-foreground font-mono">{emp.cpf || '-'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">{emp.coren || '-'}</TableCell>
                     <TableCell>
-                      <Select
-                        value={emp.shift_type}
-                        onValueChange={v => changeShift.mutate({ id: emp.id, shift_type: v })}
-                      >
-                        <SelectTrigger className="h-7 text-xs w-28 font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="diurno_a">Diurno A</SelectItem>
-                          <SelectItem value="diurno_b">Diurno B</SelectItem>
-                          <SelectItem value="noturno_a">Noturno A</SelectItem>
-                          <SelectItem value="noturno_b">Noturno B</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {['RES.TECNICA', 'LIDERANÇA'].includes(emp.role) ? (
+                        <span className="text-xs text-muted-foreground font-medium">Administrativo</span>
+                      ) : (
+                        <Select
+                          value={emp.shift_type}
+                          onValueChange={v => changeShift.mutate({ id: emp.id, shift_type: v })}
+                        >
+                          <SelectTrigger className="h-7 text-xs w-28 font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="diurno_a">Diurno A</SelectItem>
+                            <SelectItem value="diurno_b">Diurno B</SelectItem>
+                            <SelectItem value="noturno_a">Noturno A</SelectItem>
+                            <SelectItem value="noturno_b">Noturno B</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs font-mono">{emp.work_hours || '-'}</TableCell>
                     <TableCell className="min-w-[140px]">
@@ -792,15 +797,26 @@ export default function Management() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Telefone / WhatsApp</label>
-                  <input 
-                    type="text" 
-                    value={editingEmployee.phone || ''} 
-                    onChange={e => setEditingEmployee({ ...editingEmployee, phone: formatPhone(e.target.value) })}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">E-mail (Portal)</label>
+                    <input 
+                      type="email" 
+                      value={editingEmployee.email || ''} 
+                      onChange={e => setEditingEmployee({ ...editingEmployee, email: e.target.value })}
+                      className="w-full h-9 rounded-lg border border-border bg-card px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Telefone / WhatsApp</label>
+                    <input 
+                      type="text" 
+                      value={editingEmployee.phone || ''} 
+                      onChange={e => setEditingEmployee({ ...editingEmployee, phone: formatPhone(e.target.value) })}
                     placeholder="(11) 99999-9999"
                     className="w-full h-9 rounded-lg border border-border bg-card px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
